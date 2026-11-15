@@ -1,0 +1,8 @@
+{
+  "name": "ResumeFlow - Full-Stack AI Resume Builder",
+  "description": "Your Career. Your Story. Powered by AI. Build, tailor, and optimize ATS-friendly resumes with Google Gemini AI and Supabase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
