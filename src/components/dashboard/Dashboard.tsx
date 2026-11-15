@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -8,14 +9,12 @@ import {
   Copy,
   Trash2,
   Edit2,
-  ExternalLink,
   Loader2,
-  AlertCircle,
-  Database,
   ArrowRight,
   LogOut,
-  User as UserIcon,
-  Sparkles,
+  Settings,
+  ArrowUpDown,
+  AlertCircle,
 } from 'lucide-react';
 import { ResumeRecord, INITIAL_RESUME } from '../../types/resume';
 import {
@@ -25,22 +24,17 @@ import {
   duplicateResumeInDb,
 } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
 
-interface DashboardProps {
-  onOpenResume: (record: ResumeRecord) => void;
-  onCreateNew: () => void;
-  onBackToHome: () => void;
-}
+export const Dashboard: React.FC = () => {
+  const { user, profile, signOut } = useAuth();
+  const navigate = useNavigate();
 
-export const Dashboard: React.FC<DashboardProps> = ({
-  onOpenResume,
-  onCreateNew,
-  onBackToHome,
-}) => {
-  const { user, profile, signOut, setAuthModalOpen, setAuthModalTab, setConfigModalOpen, isConfigured } = useAuth();
   const [resumes, setResumes] = useState<ResumeRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [renameModal, setRenameModal] = useState<{ open: boolean; resume: ResumeRecord | null; newTitle: string }>({
     open: false,
     resume: null,
@@ -51,27 +45,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const loadResumes = async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const list = await fetchUserResumes(user?.id || 'guest');
-      // If user is logged in and has 0 resumes, create a starter resume for them in Supabase
-      if (list.length === 0 && user) {
-        const { data: starter } = await saveResumeToDb({
-          user_id: user.id,
-          title: 'My First AI Resume',
-          template: 'professional-classic',
-          resume_data: INITIAL_RESUME,
-        });
-        if (starter) {
-          setResumes([starter]);
-          setLoading(false);
-          return;
-        }
-      }
+      const list = await fetchUserResumes(user.id);
       setResumes(list);
     } catch (e: any) {
-      console.error('Failed to load resumes:', e);
-      setFeedbackMsg({ type: 'error', text: 'Failed to load resumes from Supabase.' });
+      setFeedbackMsg({ type: 'error', text: e.message || 'Failed to load resumes from Supabase.' });
     } finally {
       setLoading(false);
     }
@@ -79,34 +59,35 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   useEffect(() => {
     loadResumes();
-  }, [user]);
+  }, [user?.id]);
 
   const handleCreate = async () => {
-    if (!user) {
-      onCreateNew();
-      return;
-    }
-
+    if (!user) return;
+    setCreating(true);
+    setFeedbackMsg(null);
     try {
       const { data, error } = await saveResumeToDb({
         user_id: user.id,
-        title: `Resume ${resumes.length + 1} (${new Date().toLocaleDateString()})`,
+        title: `Resume ${resumes.length + 1}`,
         template: 'professional-classic',
         resume_data: INITIAL_RESUME,
       });
       if (error) throw error;
       if (data) {
-        onOpenResume(data);
+        navigate(`/builder/${data.id}`);
       }
     } catch (e: any) {
       setFeedbackMsg({ type: 'error', text: e.message || 'Could not create resume in database.' });
+    } finally {
+      setCreating(false);
     }
   };
 
   const handleDuplicate = async (id: string) => {
+    if (!user) return;
     setActiveMenuId(null);
     try {
-      const { data, error } = await duplicateResumeInDb(id, user?.id || 'guest');
+      const { error } = await duplicateResumeInDb(id, user.id);
       if (error) throw error;
       setFeedbackMsg({ type: 'success', text: 'Resume duplicated successfully.' });
       loadResumes();
@@ -116,8 +97,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleDelete = async (id: string) => {
+    if (!user) return;
     try {
-      const { error } = await deleteResumeFromDb(id, user?.id || 'guest');
+      const { error } = await deleteResumeFromDb(id, user.id);
       if (error) throw error;
       setResumes((prev) => prev.filter((r) => r.id !== id));
       setDeleteConfirm(null);
@@ -129,12 +111,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const handleRenameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!renameModal.resume || !renameModal.newTitle.trim()) return;
+    if (!user || !renameModal.resume || !renameModal.newTitle.trim()) return;
 
     try {
-      const { data, error } = await saveResumeToDb({
+      const { error } = await saveResumeToDb({
         id: renameModal.resume.id,
-        user_id: user?.id || 'guest',
+        user_id: user.id,
         title: renameModal.newTitle.trim(),
         template: renameModal.resume.template,
         resume_data: renameModal.resume.resume_data,
@@ -148,67 +130,69 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const filteredResumes = resumes.filter((r) =>
-    r.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/', { replace: true });
+  };
+
+  const filteredResumes = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const list = q ? resumes.filter((r) => r.title.toLowerCase().includes(q)) : [...resumes];
+    list.sort((a, b) => {
+      const ta = new Date(a.updated_at).getTime();
+      const tb = new Date(b.updated_at).getTime();
+      return sortOrder === 'desc' ? tb - ta : ta - tb;
+    });
+    return list;
+  }, [resumes, searchQuery, sortOrder]);
 
   return (
-    <div className="min-h-screen bg-[#0b0d13] text-[#e2e8f0]">
+    <div className="min-h-screen bg-[#090b10] text-[#e2e8f0]">
       {/* Top Navbar */}
-      <header className="border-b border-[#1b1f2d] bg-[#0e1017]">
+      <header className="border-b border-[#181c28] bg-[#0e1017]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button
-              onClick={onBackToHome}
-              className="flex items-center gap-2 font-bold text-white hover:opacity-80 transition"
-            >
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
-                <FileText className="w-4 h-4" />
-              </div>
-              <span className="text-base tracking-tight">ResumeFlow</span>
-            </button>
-            <span className="text-neutral-600 hidden sm:inline">/</span>
-            <span className="text-xs font-semibold text-neutral-400 hidden sm:inline">Dashboard</span>
+            <Link to="/" className="hover:opacity-90 transition">
+              <ResumeFlowLogo size="sm" />
+            </Link>
+            <span className="text-neutral-700 hidden sm:inline">/</span>
+            <span className="text-xs font-medium text-neutral-400 hidden sm:inline">Dashboard</span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setConfigModalOpen(true)}
-              className="px-2.5 py-1 text-xs text-neutral-300 hover:text-white bg-[#141724] border border-[#232736] rounded-lg flex items-center gap-1.5 transition"
+          <div className="flex items-center gap-2.5">
+            <Link
+              to="/settings"
+              className="px-3 py-1.5 text-xs text-neutral-300 hover:text-white bg-[#141724] border border-[#232736] rounded-lg flex items-center gap-1.5 transition"
             >
-              <Database className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Supabase DB</span>
-              <span className={`w-2 h-2 rounded-full ${isConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            </button>
+              <Settings className="w-3.5 h-3.5 text-neutral-400" />
+              <span className="hidden sm:inline">Settings</span>
+            </Link>
 
-            {user ? (
+            {user && (
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 px-2.5 py-1 bg-[#141724] rounded-lg border border-[#232736] text-xs">
-                  <div className="w-5 h-5 rounded-full bg-indigo-600/30 text-indigo-400 flex items-center justify-center text-[10px] font-bold">
-                    {user.email?.charAt(0).toUpperCase() || 'U'}
+                <Link
+                  to="/settings"
+                  className="hidden sm:flex items-center gap-2 px-2.5 py-1 bg-[#141724] rounded-lg border border-[#232736] text-xs hover:border-[#343a52] transition"
+                >
+                  <div className="w-5 h-5 rounded-full bg-indigo-600/30 text-indigo-300 flex items-center justify-center text-[10px] font-bold overflow-hidden">
+                    {profile?.avatar_url ? (
+                      <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      (profile?.full_name || user.email || 'U').charAt(0).toUpperCase()
+                    )}
                   </div>
-                  <span className="text-neutral-300 font-medium max-w-[120px] truncate">
+                  <span className="text-neutral-300 font-medium max-w-[130px] truncate">
                     {profile?.full_name || user.email}
                   </span>
-                </div>
+                </Link>
                 <button
-                  onClick={() => signOut()}
-                  className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition"
-                  title="Sign Out"
+                  onClick={handleSignOut}
+                  className="p-2 text-neutral-400 hover:text-rose-300 rounded-lg hover:bg-[#141724] transition"
+                  title="Logout"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={() => {
-                  setAuthModalTab('login');
-                  setAuthModalOpen(true);
-                }}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
-              >
-                Sign In to Save
-              </button>
             )}
           </div>
         </div>
@@ -216,53 +200,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Main Body */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Banner if not logged in or Supabase pending */}
-        {!user && (
-          <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Sparkles className="w-5 h-5 text-indigo-400 shrink-0" />
-              <div className="text-xs text-neutral-300">
-                <span className="font-semibold text-white">Previewing Guest Mode:</span> Sign in to automatically persist and sync your resumes in Supabase PostgreSQL with Row Level Security.
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setAuthModalTab('signup');
-                setAuthModalOpen(true);
-              }}
-              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
-            >
-              Create Free Account
-            </button>
-          </div>
-        )}
-
-        {/* Feedback Alert */}
         {feedbackMsg && (
           <div
-            className={`p-3 rounded-lg text-xs flex items-center justify-between ${
+            className={`p-3 rounded-lg text-xs flex items-center justify-between border ${
               feedbackMsg.type === 'success'
-                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300'
-                : 'bg-rose-500/10 border border-rose-500/20 text-rose-300'
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
             }`}
           >
-            <span>{feedbackMsg.text}</span>
+            <div className="flex items-center gap-2">
+              {feedbackMsg.type === 'error' && <AlertCircle className="w-4 h-4 shrink-0" />}
+              <span>{feedbackMsg.text}</span>
+            </div>
             <button onClick={() => setFeedbackMsg(null)} className="text-neutral-400 hover:text-white ml-2">
               ×
             </button>
           </div>
         )}
 
-        {/* Dashboard Header Bar */}
+        {/* Header Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">My Resumes</h1>
             <p className="text-xs text-neutral-400 mt-1">
-              Manage, edit, duplicate, and tailor your career resumes
+              Manage, tailor, and export your resumes stored in Supabase PostgreSQL
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <div className="relative">
               <Search className="w-4 h-4 text-neutral-500 absolute left-3 top-2.5" />
               <input
@@ -270,15 +235,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search resumes..."
-                className="pl-9 pr-3 py-2 text-xs bg-[#11131a] border border-[#232736] rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 w-48 sm:w-64"
+                className="pl-9 pr-3 py-2 text-xs bg-[#101219] border border-[#232736] rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 w-44 sm:w-60"
               />
             </div>
 
             <button
-              onClick={handleCreate}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 transition shadow-lg shadow-indigo-600/20"
+              type="button"
+              onClick={() => setSortOrder((s) => (s === 'desc' ? 'asc' : 'desc'))}
+              className="px-3 py-2 text-xs font-medium rounded-lg bg-[#101219] hover:bg-[#161925] border border-[#232736] text-neutral-300 flex items-center gap-1.5 transition"
+              title="Toggle sort by last updated"
             >
-              <Plus className="w-4 h-4" />
+              <ArrowUpDown className="w-3.5 h-3.5 text-neutral-400" />
+              <span className="hidden sm:inline">{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
+            </button>
+
+            <button
+              onClick={handleCreate}
+              disabled={creating}
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 transition disabled:opacity-50"
+            >
+              {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               <span>Create Resume</span>
             </button>
           </div>
@@ -287,43 +263,46 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Resumes Grid */}
         {loading ? (
           <div className="py-20 text-center space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mx-auto" />
-            <p className="text-xs text-neutral-400">Loading your resumes from Supabase PostgreSQL...</p>
+            <Loader2 className="w-7 h-7 animate-spin text-indigo-500 mx-auto" />
+            <p className="text-xs text-neutral-400">Loading your resumes...</p>
           </div>
         ) : filteredResumes.length === 0 ? (
-          <div className="p-12 text-center bg-[#11131a] border border-[#232736] rounded-2xl space-y-4">
-            <div className="w-12 h-12 rounded-xl bg-neutral-800 text-neutral-400 flex items-center justify-center mx-auto">
+          <div className="p-12 text-center bg-[#101219] border border-[#1d2130] rounded-2xl space-y-4">
+            <div className="w-12 h-12 rounded-xl bg-[#161925] border border-[#23283b] text-neutral-400 flex items-center justify-center mx-auto">
               <FileText className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">No resumes found</h3>
+              <h3 className="text-base font-bold text-white">No resumes yet</h3>
               <p className="text-xs text-neutral-400 mt-1">
-                {searchQuery ? 'Try matching a different keyword' : 'Create your first AI-optimized resume in seconds.'}
+                {searchQuery ? 'No resumes match your search query.' : 'Create your first AI-optimized resume in seconds.'}
               </p>
             </div>
-            <button
-              onClick={handleCreate}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white inline-flex items-center gap-2 transition"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create Resume Now</span>
-            </button>
+            {!searchQuery && (
+              <button
+                onClick={handleCreate}
+                disabled={creating}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white inline-flex items-center gap-2 transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Resume</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {filteredResumes.map((resume) => (
               <div
                 key={resume.id}
-                className="group p-5 bg-[#11131a] border border-[#232736] hover:border-indigo-500/40 rounded-2xl transition flex flex-col justify-between relative shadow-lg"
+                className="group p-5 bg-[#101219] border border-[#1d2130] hover:border-indigo-500/40 rounded-2xl transition flex flex-col justify-between relative"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-lg bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
                         <FileText className="w-4 h-4" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-white group-hover:text-indigo-300 transition line-clamp-1">
+                        <h3 className="text-sm font-semibold text-white group-hover:text-indigo-300 transition line-clamp-1">
                           {resume.title}
                         </h3>
                         <p className="text-[11px] text-neutral-400 capitalize">
@@ -335,26 +314,26 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <div className="relative">
                       <button
                         onClick={() => setActiveMenuId(activeMenuId === resume.id ? null : resume.id)}
-                        className="p-1 text-neutral-400 hover:text-white rounded hover:bg-neutral-800 transition"
+                        className="p-1 text-neutral-400 hover:text-white rounded hover:bg-[#1a1e2e] transition"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
 
                       {activeMenuId === resume.id && (
-                        <div className="absolute right-0 top-7 w-40 bg-[#161924] border border-[#232736] rounded-xl shadow-2xl py-1 z-20 text-xs">
+                        <div className="absolute right-0 top-7 w-40 bg-[#151824] border border-[#232736] rounded-xl shadow-2xl py-1 z-20 text-xs">
                           <button
                             onClick={() => {
                               setActiveMenuId(null);
                               setRenameModal({ open: true, resume, newTitle: resume.title });
                             }}
-                            className="w-full px-3 py-2 text-left text-neutral-300 hover:text-white hover:bg-neutral-800 flex items-center gap-2"
+                            className="w-full px-3 py-2 text-left text-neutral-300 hover:text-white hover:bg-[#1d2233] flex items-center gap-2"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                             <span>Rename</span>
                           </button>
                           <button
                             onClick={() => handleDuplicate(resume.id)}
-                            className="w-full px-3 py-2 text-left text-neutral-300 hover:text-white hover:bg-neutral-800 flex items-center gap-2"
+                            className="w-full px-3 py-2 text-left text-neutral-300 hover:text-white hover:bg-[#1d2233] flex items-center gap-2"
                           >
                             <Copy className="w-3.5 h-3.5" />
                             <span>Duplicate</span>
@@ -375,8 +354,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   </div>
 
-                  <div className="mt-4 p-3 bg-[#0a0c12] rounded-xl border border-[#1b1f2d] space-y-1 text-xs">
-                    <div className="text-neutral-300 font-medium truncate">
+                  <div className="mt-4 p-3 bg-[#090b10] rounded-xl border border-[#181c28] space-y-1 text-xs">
+                    <div className="text-neutral-200 font-medium truncate">
                       {resume.resume_data?.basics?.name || 'Untitled Candidate'}
                     </div>
                     <div className="text-[11px] text-neutral-500 truncate">
@@ -384,17 +363,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                     <div className="text-[10px] text-neutral-500 flex items-center gap-1 pt-1">
                       <Clock className="w-3 h-3 text-neutral-500" />
-                      <span>Updated {new Date(resume.updated_at).toLocaleDateString()}</span>
+                      <span>Updated {new Date(resume.updated_at).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-5 pt-3 border-t border-[#1b1f2d] flex items-center justify-between">
+                <div className="mt-4 pt-3 border-t border-[#181c28]">
                   <button
-                    onClick={() => onOpenResume(resume)}
-                    className="w-full py-2 text-xs font-semibold rounded-lg bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/20 hover:border-transparent flex items-center justify-center gap-1.5 transition"
+                    onClick={() => navigate(`/builder/${resume.id}`)}
+                    className="w-full py-2 text-xs font-semibold rounded-lg bg-[#161925] hover:bg-indigo-600 text-indigo-300 hover:text-white border border-[#23283b] hover:border-transparent flex items-center justify-center gap-1.5 transition"
                   >
-                    <span>Open Editor</span>
+                    <span>Open Builder</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -406,8 +385,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Rename Dialog */}
       {renameModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-[#11131a] border border-[#232736] rounded-xl p-5 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#101219] border border-[#232736] rounded-xl p-5 space-y-4">
             <h3 className="text-sm font-bold text-white">Rename Resume</h3>
             <form onSubmit={handleRenameSubmit} className="space-y-3">
               <input
@@ -416,7 +395,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 required
                 value={renameModal.newTitle}
                 onChange={(e) => setRenameModal({ ...renameModal, newTitle: e.target.value })}
-                className="w-full px-3 py-2 text-xs bg-[#0a0c12] border border-[#232736] rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                className="w-full px-3 py-2 text-xs bg-[#090b10] border border-[#232736] rounded-lg text-white focus:outline-none focus:border-indigo-500"
               />
               <div className="flex justify-end gap-2">
                 <button
@@ -440,15 +419,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Delete Confirmation Dialog */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-sm bg-[#11131a] border border-[#232736] rounded-xl p-5 space-y-4 text-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#101219] border border-[#232736] rounded-xl p-5 space-y-4 text-center">
             <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto">
               <Trash2 className="w-5 h-5" />
             </div>
             <div>
               <h3 className="text-sm font-bold text-white">Delete Resume?</h3>
               <p className="text-xs text-neutral-400 mt-1">
-                This action permanently removes this resume from your Supabase database.
+                This permanently removes this resume from your Supabase PostgreSQL database.
               </p>
             </div>
             <div className="flex justify-center gap-3 pt-2">

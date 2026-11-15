@@ -1,188 +1,237 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
-  CheckCircle,
-  FileText,
+  CheckCircle2,
   Target,
   Database,
   Layers,
   Download,
   ChevronDown,
-  Star,
-  Github,
-  Zap,
   Lock,
+  X,
+  Menu,
+  Mail,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { TemplateDefinition } from '../../types/resume';
+import { INITIAL_RESUME, TemplateDefinition } from '../../types/resume';
+import { fetchActiveTemplates } from '../../lib/supabase';
+import { ResumeRenderer } from '../templates/ResumeRenderer';
+import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
 
-interface LandingPageProps {
-  onStartBuilding: (templateId?: string) => void;
-  onExploreTemplates: () => void;
-  onOpenDashboard: () => void;
-}
-
-const TEMPLATES: TemplateDefinition[] = [
+const DEFAULT_TEMPLATES: TemplateDefinition[] = [
   {
     id: 'professional-classic',
     name: 'Professional Classic',
-    description: 'Clean single-column layout optimized for strict corporate ATS algorithms in finance, law, and consulting.',
-    popular: true,
+    description: 'Single-column hierarchy engineered for strict enterprise ATS parsers in finance, consulting, and engineering.',
+    badge: 'ATS Standard',
   },
   {
     id: 'modern-minimalist',
     name: 'Modern Minimalist',
-    description: 'Sophisticated two-column design balancing high data density with visual hierarchy and breathing room.',
+    description: 'Balanced two-column architecture pairing crisp contact metadata with readable career milestones.',
     badge: 'Popular',
   },
   {
     id: 'executive-slate',
     name: 'Executive Slate',
-    description: 'Commanding slate headers with emphasis on leadership scope, business ROI, and strategic milestones.',
+    description: 'Commanding slate banner and leadership summary framing designed for staff, principal, and VP roles.',
     badge: 'Executive',
   },
   {
     id: 'tech-monochrome',
     name: 'Tech Monochrome',
-    description: 'Developer-first monospace accents highlighting GitHub repositories, system architecture, and tech stacks.',
-    badge: 'Tech',
+    description: 'Developer-first layout with monospace section cues highlighting GitHub projects and technical depth.',
+    badge: 'Engineering',
   },
   {
     id: 'creative-accent',
     name: 'Creative Accent',
-    description: 'Contemporary typography with subtle accent borders for product managers, designers, and innovators.',
-    badge: 'Creative',
+    description: 'Contemporary typography with subtle left-edge accent styling for product, design, and growth leaders.',
+    badge: 'Product',
   },
 ];
 
-export const LandingPage: React.FC<LandingPageProps> = ({
-  onStartBuilding,
-  onExploreTemplates,
-  onOpenDashboard,
-}) => {
-  const { user, setAuthModalOpen, setAuthModalTab, setConfigModalOpen, isConfigured } = useAuth();
-  const [activeFaq, setActiveFaq] = useState<number | null>(null);
+export const LandingPage: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [templates, setTemplates] = useState<TemplateDefinition[]>(DEFAULT_TEMPLATES);
+  const [activeFaq, setActiveFaq] = useState<number | null>(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | 'contact' | null>(null);
+
+  useEffect(() => {
+    fetchActiveTemplates().then((dbTemplates) => {
+      if (dbTemplates.length > 0) {
+        setTemplates((prev) =>
+          prev.map((item) => {
+            const match = dbTemplates.find(
+              (dbItem) => dbItem.name.toLowerCase() === item.name.toLowerCase()
+            );
+            return match ? { ...item, description: match.description || item.description } : item;
+          })
+        );
+      }
+    });
+  }, []);
+
+  const handleBuildClick = (templateId?: string) => {
+    const target = templateId ? `/builder?template=${templateId}` : '/builder';
+    if (user) {
+      navigate(target);
+    } else {
+      navigate('/signup', { state: { from: target } });
+    }
+  };
 
   const faqs = [
     {
-      q: 'How does ResumeFlow beat modern Applicant Tracking Systems (ATS)?',
-      a: 'ResumeFlow templates are built using ATS-compliant single and dual-column semantic structures with clean typography. Our built-in Gemini 3.8 ATS Auditor checks power action verbs, quantifiable metrics (Google XYZ formula), keyword frequencies, and section headers to ensure 90%+ pass rates across Workday, Greenhouse, and Lever.',
+      q: 'How does ResumeFlow help my resume pass ATS screening?',
+      a: 'Every ResumeFlow template uses clean, parseable layout structures with predictable headings and vector PDF output. Our Gemini AI ATS Auditor checks action verbs, quantified metrics (Google XYZ formula), and keyword alignment against target job descriptions.',
     },
     {
-      q: 'How does Supabase database and authentication work here?',
-      a: 'Your account and resumes are backed by Supabase PostgreSQL with strict Row Level Security (RLS). Resumes are tied to your authenticated auth.uid(), meaning only you can read, modify, or delete your resumes. All profile triggers and database operations run directly on PostgreSQL.',
+      q: 'How is my personal career data stored and protected?',
+      a: 'Your account and resumes are stored directly in Supabase PostgreSQL with Row Level Security (RLS). Every database operation checks your authenticated Supabase session so only you can view, edit, duplicate, or delete your resumes.',
     },
     {
-      q: 'Can I export a clean, high-resolution PDF?',
-      a: 'Yes. ResumeFlow provides a dedicated print-optimized rendering engine that outputs standard A4 / US Letter PDFs with razor-sharp vector typography, zero layout shifts, and selectable text.',
+      q: 'Can I customize templates and export high-resolution PDFs?',
+      a: 'Yes. Switch seamlessly between 5 handcrafted templates, customize accent colors, font families, and spacing in real time, and export print-ready A4 PDFs with selectable text.',
     },
     {
-      q: 'What AI model powers the resume enhancements?',
-      a: 'We use the latest Google Gemini 3.8 Flash model hosted securely on our server. It powers bullet point enhancement, professional summary generation, ATS scoring, and job description keyword tailoring.',
+      q: 'What AI capabilities are included for free?',
+      a: 'ResumeFlow includes Google Gemini-powered bullet enhancement, executive summary generation, ATS scoring, job description tailoring, skill recommendations, and tailored cover letter drafting.',
     },
   ];
 
   return (
-    <div className="min-h-screen bg-[#0b0d13] text-[#e2e8f0] selection:bg-indigo-500/30 selection:text-indigo-200">
-      {/* 1. Navigation */}
-      <nav className="sticky top-0 z-40 border-b border-[#1b1f2d] bg-[#0b0d13]/80 backdrop-blur-md">
+    <div id="home" className="min-h-screen bg-[#090b10] text-[#e2e8f0] selection:bg-indigo-500/30 selection:text-indigo-200">
+      {/* Navigation */}
+      <header className="sticky top-0 z-40 border-b border-[#181c28] bg-[#090b10]/85 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25">
-              <FileText className="w-4 h-4" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-base tracking-tight text-white flex items-center gap-1.5">
-                ResumeFlow
-                <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  AI v3.8
-                </span>
-              </span>
-            </div>
-          </div>
+          <Link to="/" className="hover:opacity-90 transition">
+            <ResumeFlowLogo size="md" showTag />
+          </Link>
 
-          <div className="hidden md:flex items-center gap-6 text-xs font-medium text-neutral-400">
+          <nav className="hidden md:flex items-center gap-7 text-xs font-medium text-neutral-400">
+            <a href="#home" className="hover:text-white transition">Home</a>
             <a href="#features" className="hover:text-white transition">Features</a>
             <a href="#templates" className="hover:text-white transition">Templates</a>
-            <a href="#how-it-works" className="hover:text-white transition">How It Works</a>
-            <a href="#security" className="hover:text-white transition">Supabase PostgreSQL</a>
-            <a href="#faq" className="hover:text-white transition">FAQ</a>
-          </div>
+            <a href="#about" className="hover:text-white transition">About</a>
+            <a href="#faq" className="hover:text-white transition">FAQs</a>
+          </nav>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => setConfigModalOpen(true)}
-              className="px-2.5 py-1 text-xs text-neutral-400 hover:text-white bg-[#141724] border border-[#232736] rounded-lg flex items-center gap-1.5 transition"
-              title="Supabase Database Settings"
-            >
-              <Database className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Supabase</span>
-              <span className={`w-2 h-2 rounded-full ${isConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-            </button>
-
+          <div className="hidden md:flex items-center gap-3">
             {user ? (
-              <button
-                onClick={onOpenDashboard}
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm flex items-center gap-1.5"
-              >
-                <span>Dashboard</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
               <>
-                <button
-                  onClick={() => {
-                    setAuthModalTab('login');
-                    setAuthModalOpen(true);
-                  }}
+                <Link
+                  to="/settings"
                   className="px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white transition"
                 >
-                  Log In
-                </button>
-                <button
-                  onClick={() => {
-                    setAuthModalTab('signup');
-                    setAuthModalOpen(true);
-                  }}
-                  className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-sm"
+                  Settings
+                </Link>
+                <Link
+                  to="/dashboard"
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5"
+                >
+                  <span>Dashboard</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/login"
+                  className="px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white transition"
+                >
+                  Login
+                </Link>
+                <Link
+                  to="/signup"
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
                 >
                   Sign Up
-                </button>
+                </Link>
               </>
             )}
           </div>
-        </div>
-      </nav>
 
-      {/* 2. Hero Section */}
-      <section className="relative pt-20 pb-24 overflow-hidden">
-        {/* Subtle glow background */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[350px] bg-indigo-600/10 blur-[130px] rounded-full pointer-events-none" />
+          {/* Mobile Menu Toggle */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((v) => !v)}
+            className="md:hidden p-2 text-neutral-400 hover:text-white rounded-lg hover:bg-[#141724] transition"
+            aria-label="Toggle Menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+
+        {/* Mobile Nav Drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-[#181c28] bg-[#0d0f17] px-4 py-4 space-y-3 text-xs">
+            <div className="flex flex-col space-y-2.5 text-neutral-300 font-medium">
+              <a href="#home" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">Home</a>
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">Features</a>
+              <a href="#templates" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">Templates</a>
+              <a href="#about" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">About</a>
+            </div>
+            <div className="pt-3 border-t border-[#1c2030] flex items-center gap-2.5">
+              {user ? (
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 py-2 text-center font-semibold rounded-lg bg-indigo-600 text-white"
+                >
+                  Go to Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex-1 py-2 text-center font-medium rounded-lg border border-[#232736] text-neutral-200"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex-1 py-2 text-center font-semibold rounded-lg bg-indigo-600 text-white"
+                  >
+                    Sign Up
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* Hero Section */}
+      <section className="relative pt-16 sm:pt-24 pb-20 overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[540px] h-[260px] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
 
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium mb-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#121521] border border-[#23283b] text-indigo-300 text-xs font-medium mb-6">
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Google Gemini 3.8 Flash • Supabase PostgreSQL • Real RLS</span>
+            <span>Your Career. Your Story. Powered by AI.</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-[1.12]">
+          <h1 className="text-3xl sm:text-5xl lg:text-[56px] font-bold tracking-tight text-white max-w-4xl mx-auto leading-[1.1]">
             Build a Resume That Gets You Noticed.
           </h1>
 
-          <p className="mt-5 text-lg sm:text-xl text-neutral-400 max-w-2xl mx-auto font-normal">
-            Your Career. Your Story. Powered by AI.
-          </p>
-
-          <p className="mt-2 text-sm text-neutral-500 max-w-xl mx-auto">
-            Transform raw experience into quantified Google XYZ bullets, audit ATS compatibility in real time, and tailor resumes to any job description.
+          <p className="mt-5 text-sm sm:text-base text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+            Craft crisp, recruiter-ready resumes with Google Gemini bullet enhancements, instant ATS scoring, job description tailoring, and secure Supabase cloud sync.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3.5">
             <button
-              onClick={() => onStartBuilding()}
-              className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold flex items-center gap-2 transition shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/35"
+              onClick={() => handleBuildClick()}
+              className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 transition shadow-sm"
             >
               <span>Build My Resume</span>
               <ArrowRight className="w-4 h-4" />
@@ -190,199 +239,183 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             <a
               href="#templates"
-              className="px-5 py-3 rounded-xl bg-[#141724] hover:bg-[#1a1e30] border border-[#232736] text-neutral-200 text-sm font-medium transition"
+              className="px-5 py-2.5 rounded-lg bg-[#121521] hover:bg-[#191d2d] border border-[#252a3d] text-neutral-200 text-xs sm:text-sm font-medium transition"
             >
               Explore Templates
             </a>
           </div>
 
-          {/* Social proof pills */}
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-6 text-xs text-neutral-500">
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-6 text-xs text-neutral-500">
             <div className="flex items-center gap-1.5">
-              <CheckCircle className="w-4 h-4 text-emerald-400" />
-              <span>ATS-Friendly Parsing</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>ATS-Verified Structures</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <CheckCircle className="w-4 h-4 text-emerald-400" />
-              <span>Direct Supabase Sync</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Supabase PostgreSQL Sync</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <CheckCircle className="w-4 h-4 text-emerald-400" />
-              <span>Zero-Margin PDF Export</span>
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Vector PDF Export</span>
             </div>
           </div>
 
-          {/* Interactive Hero Preview Element */}
-          <div className="mt-14 relative max-w-4xl mx-auto rounded-2xl p-1 bg-gradient-to-b from-[#2a3048] to-[#12141f] shadow-2xl">
-            <div className="bg-[#0e1017] rounded-xl overflow-hidden border border-[#1f2436] p-4 sm:p-6 text-left">
-              <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#1b1f2d]">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full bg-rose-500/70" />
-                  <div className="w-3 h-3 rounded-full bg-amber-500/70" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-500/70" />
-                  <span className="text-xs text-neutral-400 font-mono pl-2">resume_lead_architect.json</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    ATS Score: 94 / 100
-                  </span>
-                  <span className="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold">
-                    PostgreSQL Synced
-                  </span>
-                </div>
+          {/* Interactive Workspace Showcase */}
+          <div className="mt-14 max-w-4xl mx-auto rounded-2xl border border-[#1f2433] bg-[#0e1017] p-4 sm:p-6 text-left shadow-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#191d2b]">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-neutral-700" />
+                <span className="w-2.5 h-2.5 rounded-full bg-neutral-700" />
+                <span className="w-2.5 h-2.5 rounded-full bg-neutral-700" />
+                <span className="text-xs text-neutral-400 font-mono ml-2">senior_software_engineer.resume</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[11px] font-medium flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  ATS Score: 94 / 100
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+              <div className="p-4 rounded-xl bg-[#090b10] border border-[#1d2130] space-y-2">
+                <div className="text-[11px] font-medium text-neutral-400">Original Draft</div>
+                <p className="text-xs text-neutral-400 font-mono leading-relaxed">
+                  "Responsible for building frontend features and fixing bugs on the analytics dashboard."
+                </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
-                {/* Before bullet */}
-                <div className="p-4 rounded-xl bg-[#08090f] border border-rose-500/20 space-y-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-rose-500" />
-                    Weak Traditional Phrasing (Fails ATS)
-                  </div>
-                  <p className="text-xs text-neutral-400 font-mono">
-                    "Responsible for working on front-end features and fixing bugs on customer dashboard."
-                  </p>
-                  <p className="text-[11px] text-neutral-500 italic">
-                    Lacks action verbs, zero metrics, passive voice.
-                  </p>
+              <div className="p-4 rounded-xl bg-[#090b10] border border-indigo-500/30 space-y-2">
+                <div className="text-[11px] font-medium text-indigo-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Gemini XYZ Enhancement</span>
                 </div>
-
-                {/* After bullet */}
-                <div className="p-4 rounded-xl bg-[#08090f] border border-emerald-500/30 space-y-2">
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                    Gemini 3.8 XYZ Formula Enhancement
-                  </div>
-                  <p className="text-xs text-white font-mono">
-                    "Spearheaded frontend architecture modernization for 45K+ enterprise users, boosting page load speeds by 44% and lowering bug reports by 65%."
-                  </p>
-                  <p className="text-[11px] text-emerald-400/90 font-medium">
-                    Strong action verb, quantified metrics ($/scale/%), passes top ATS filters.
-                  </p>
-                </div>
+                <p className="text-xs text-neutral-100 font-mono leading-relaxed">
+                  "Spearheaded React and TypeScript dashboard modernization for 45K+ enterprise users, cutting page load latency by 44% and reducing regressions by 65%."
+                </p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 3. Features Section */}
-      <section id="features" className="py-20 border-t border-[#1b1f2d] bg-[#0d0f17]">
+      {/* Features Section */}
+      <section id="features" className="py-20 border-t border-[#181c28] bg-[#0b0d13]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Intelligent Features</h2>
-            <p className="text-3xl font-extrabold text-white mt-2">
-              Everything You Need to Land Top Interviews
-            </p>
-            <p className="text-sm text-neutral-400 mt-3">
-              Crafted with the precision of Linear, the reliability of Stripe, and the intelligence of Google Gemini.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-2xl bg-[#11131a] border border-[#232736] hover:border-indigo-500/30 transition space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white">Google XYZ Bullet Enhancer</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Automatically rewrites duties into quantifiable impact statements: "Accomplished [X] as measured by [Y], by doing [Z]".
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#11131a] border border-[#232736] hover:border-indigo-500/30 transition space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white">Real-Time ATS Auditor</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Deep algorithmic evaluation of power verbs, density, metrics, and section structure with 0-100 scoring and targeted fixes.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#11131a] border border-[#232736] hover:border-indigo-500/30 transition space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center">
-                <Target className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white">Job Description Tailoring</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Paste any job posting. Gemini scans missing keywords and rewrites your bullets to perfectly match the role requirements.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#11131a] border border-[#232736] hover:border-indigo-500/30 transition space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-400 flex items-center justify-center">
-                <Database className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white">Supabase PostgreSQL & RLS</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Real relational database storage with Row Level Security. Never worry about losing data across sessions or devices.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#11131a] border border-[#232736] hover:border-indigo-500/30 transition space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
-                <Layers className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white">5 High-Craft Templates</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                From traditional Wall Street classics to modern dual-column and developer monospace designs. Custom fonts and colors.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-2xl bg-[#11131a] border border-[#232736] hover:border-indigo-500/30 transition space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center">
-                <Download className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-white">Vector PDF & JSON Export</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Generate clean, high-resolution PDFs without page breaks clipping your text. Export and import standardized JSON anytime.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. Templates Showcase */}
-      <section id="templates" className="py-20 border-t border-[#1b1f2d]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-14">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Recruiter-Approved</h2>
-            <p className="text-3xl font-extrabold text-white mt-2">
-              Designed for Human Eyes and ATS Machines
-            </p>
+          <div className="max-w-2xl mb-12">
+            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Features</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-2">
+              Precision tools for modern job searches
+            </h2>
             <p className="text-sm text-neutral-400 mt-2">
-              Select any template to launch directly into the editor with pre-structured sample data.
+              Designed to eliminate busywork and surface the measurable impact recruiters look for.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {TEMPLATES.map((tmpl) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              {
+                icon: Sparkles,
+                title: 'AI Bullet Point Enhancer',
+                desc: 'Convert passive task lists into quantified Google XYZ achievements with tailored variations.',
+              },
+              {
+                icon: ShieldCheck,
+                title: 'Real-Time ATS Auditor',
+                desc: 'Score formatting, power verbs, and metric density out of 100 with concrete, actionable fixes.',
+              },
+              {
+                icon: Target,
+                title: 'Job Description Tailoring',
+                desc: 'Compare your resume against any job posting to uncover missing keywords and targeted rewrites.',
+              },
+              {
+                icon: Database,
+                title: 'Supabase PostgreSQL Sync',
+                desc: 'Save, rename, duplicate, and restore resumes across devices with strict Row Level Security.',
+              },
+              {
+                icon: Layers,
+                title: '5 Handcrafted Templates',
+                desc: 'Switch templates on the fly with customizable accent colors, typography, and spacing.',
+              },
+              {
+                icon: Download,
+                title: 'Clean Vector PDF & JSON',
+                desc: 'Export razor-sharp A4 PDFs with selectable text or portable JSON backups in one click.',
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="p-6 rounded-xl bg-[#101219] border border-[#1d2130] hover:border-[#2c334a] transition space-y-3"
+              >
+                <div className="w-9 h-9 rounded-lg bg-[#161925] border border-[#23283b] text-indigo-400 flex items-center justify-center">
+                  <f.icon className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">{f.title}</h3>
+                <p className="text-xs text-neutral-400 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Templates Showcase with Live Previews */}
+      <section id="templates" className="py-20 border-t border-[#181c28]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Templates</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-2">
+                Recruiter-approved layouts
+              </h2>
+              <p className="text-sm text-neutral-400 mt-2 max-w-xl">
+                Every template renders live in the editor and exports cleanly for both human hiring managers and ATS parsers.
+              </p>
+            </div>
+            <button
+              onClick={() => handleBuildClick()}
+              className="self-start sm:self-auto px-4 py-2 text-xs font-semibold rounded-lg bg-[#141724] hover:bg-[#1c2032] border border-[#252a3d] text-white transition flex items-center gap-1.5"
+            >
+              <span>Start from any template</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {templates.map((tmpl) => (
               <div
                 key={tmpl.id}
-                onClick={() => onStartBuilding(tmpl.id)}
-                className="group p-4 bg-[#11131a] border border-[#232736] hover:border-indigo-500/50 rounded-xl transition cursor-pointer flex flex-col justify-between"
+                onClick={() => handleBuildClick(tmpl.id)}
+                className="group rounded-2xl bg-[#101219] border border-[#1d2130] hover:border-indigo-500/40 overflow-hidden cursor-pointer transition flex flex-col"
               >
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-white group-hover:text-indigo-400 transition">
-                      {tmpl.name}
-                    </span>
-                    {tmpl.badge && (
-                      <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                        {tmpl.badge}
-                      </span>
-                    )}
+                {/* Live Scaled Mini Preview */}
+                <div className="h-64 bg-[#07080c] border-b border-[#1d2130] overflow-hidden relative flex justify-center pt-4">
+                  <div className="pointer-events-none select-none origin-top scale-[0.34]">
+                    <ResumeRenderer data={INITIAL_RESUME} template={tmpl.id} isPrint />
                   </div>
-                  <p className="text-[11px] text-neutral-400 leading-relaxed">
-                    {tmpl.description}
-                  </p>
+                  <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-[#101219] to-transparent" />
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-[#1b1f2d] flex items-center justify-between text-xs text-indigo-400 font-medium">
-                  <span>Use Template</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition" />
+                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <h3 className="text-sm font-semibold text-white group-hover:text-indigo-300 transition">
+                        {tmpl.name}
+                      </h3>
+                      {tmpl.badge && (
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#161925] text-indigo-300 border border-[#24293d]">
+                          {tmpl.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-400 leading-relaxed">{tmpl.description}</p>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#191d2b] flex items-center justify-between text-xs font-medium text-indigo-400">
+                    <span>Use {tmpl.name}</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition" />
+                  </div>
                 </div>
               </div>
             ))}
@@ -390,96 +423,113 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 5. How It Works Section */}
-      <section id="how-it-works" className="py-20 border-t border-[#1b1f2d] bg-[#0d0f17]">
+      {/* How It Works */}
+      <section id="how-it-works" className="py-20 border-t border-[#181c28] bg-[#0b0d13]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Simple 3-Step Flow</h2>
-            <p className="text-3xl font-extrabold text-white mt-2">From Blank Page to Interview-Ready in Minutes</p>
+          <div className="max-w-2xl mb-12">
+            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Workflow</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-2">
+              Three steps from draft to interview
+            </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
-            <div className="p-6 bg-[#11131a] border border-[#232736] rounded-2xl relative space-y-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 font-bold flex items-center justify-center text-sm">
-                1
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                step: '01',
+                title: 'Structure your background',
+                desc: 'Enter your roles, education, skills, and projects—or load a structured template and customize every section.',
+              },
+              {
+                step: '02',
+                title: 'Enhance & tailor with Gemini',
+                desc: 'Upgrade weak bullets with quantified metrics, check your ATS score, and align keywords to your target job posting.',
+              },
+              {
+                step: '03',
+                title: 'Sync to Supabase & export',
+                desc: 'Keep multiple tailored versions organized in your private Supabase dashboard and download clean PDFs anytime.',
+              },
+            ].map((item) => (
+              <div key={item.step} className="p-6 rounded-xl bg-[#101219] border border-[#1d2130] space-y-3">
+                <span className="text-xs font-mono font-semibold text-indigo-400">{item.step}</span>
+                <h3 className="text-sm font-semibold text-white">{item.title}</h3>
+                <p className="text-xs text-neutral-400 leading-relaxed">{item.desc}</p>
               </div>
-              <h3 className="text-base font-bold text-white">Enter Your Experience</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Add your career highlights, education, and technical competencies. Pre-populate with our executive template in 1 click.
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* About & Security Section */}
+      <section id="about" className="py-20 border-t border-[#181c28]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <div className="space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">About ResumeFlow</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                Built for clarity, speed, and data ownership
+              </h2>
+              <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+                ResumeFlow was built to replace bloated, paywalled resume tools with a focused workspace. Your resume data stays private inside your authenticated Supabase PostgreSQL database with Row Level Security enforced at the database layer.
               </p>
+              <div className="pt-2 flex flex-wrap gap-3">
+                <button
+                  onClick={() => handleBuildClick()}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
+                >
+                  Create Free Account
+                </button>
+                <Link
+                  to="/login"
+                  className="px-4 py-2 text-xs font-medium rounded-lg bg-[#121521] hover:bg-[#191d2d] border border-[#252a3d] text-neutral-200 transition"
+                >
+                  Sign In
+                </Link>
+              </div>
             </div>
 
-            <div className="p-6 bg-[#11131a] border border-[#232736] rounded-2xl relative space-y-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 font-bold flex items-center justify-center text-sm">
-                2
+            <div className="p-6 rounded-2xl bg-[#101219] border border-[#1d2130] space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">PostgreSQL Row Level Security</h3>
+                  <p className="text-[11px] text-neutral-400">Private user isolation verified via auth.uid()</p>
+                </div>
               </div>
-              <h3 className="text-base font-bold text-white">AI Polishes & Tailors</h3>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                Click ✨ to enhance bullets into quantified Google XYZ format, run the ATS compliance audit, and tailor to job descriptions.
-              </p>
-            </div>
-
-            <div className="p-6 bg-[#11131a] border border-[#232736] rounded-2xl relative space-y-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600/20 text-indigo-400 font-bold flex items-center justify-center text-sm">
-                3
-              </div>
-              <h3 className="text-base font-bold text-white">Save to Supabase & Export</h3>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Your resume syncs to Supabase PostgreSQL under your user account. Download clean, ATS-compliant PDF with one click.
+                Tables for <code className="text-indigo-300 font-mono">profiles</code>,{' '}
+                <code className="text-indigo-300 font-mono">resumes</code>,{' '}
+                <code className="text-indigo-300 font-mono">templates</code>, and{' '}
+                <code className="text-indigo-300 font-mono">ai_usage</code> are protected with strict RLS policies and automated database triggers.
               </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 6. Supabase Security & Architecture */}
-      <section id="security" className="py-20 border-t border-[#1b1f2d]">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="p-8 rounded-2xl bg-gradient-to-r from-[#111420] to-[#151928] border border-[#232736] space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <Lock className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Enterprise Database & Security Architecture</h3>
-                <p className="text-xs text-neutral-400">Strict PostgreSQL Row Level Security (RLS) & Auth</p>
-              </div>
-            </div>
-
-            <p className="text-xs text-neutral-300 leading-relaxed">
-              ResumeFlow connects directly to Supabase PostgreSQL. Tables (<code className="text-indigo-400 font-mono">profiles</code>, <code className="text-indigo-400 font-mono">resumes</code>, <code className="text-indigo-400 font-mono">templates</code>, <code className="text-indigo-400 font-mono">ai_usage</code>) are protected by Row Level Security policies that verify <code className="text-indigo-400 font-mono">auth.uid() = user_id</code> on every query. Automatic database triggers handle timestamps and user profile provisioning upon signup.
-            </p>
-
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button
-                onClick={() => setConfigModalOpen(true)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-2"
-              >
-                <Database className="w-3.5 h-3.5" />
-                <span>View Supabase Setup & SQL Schema</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. FAQs */}
-      <section id="faq" className="py-20 border-t border-[#1b1f2d] bg-[#0d0f17]">
+      {/* FAQs */}
+      <section id="faq" className="py-20 border-t border-[#181c28] bg-[#0b0d13]">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-indigo-400">Answers & Details</h2>
-            <p className="text-3xl font-extrabold text-white mt-2">Frequently Asked Questions</p>
+          <div className="text-center mb-10">
+            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">FAQs</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-2">
+              Frequently asked questions
+            </h2>
           </div>
 
           <div className="space-y-3">
             {faqs.map((faq, idx) => (
               <div
                 key={idx}
-                className="border border-[#232736] rounded-xl overflow-hidden bg-[#11131a] transition"
+                className="border border-[#1d2130] rounded-xl overflow-hidden bg-[#101219]"
               >
                 <button
+                  type="button"
                   onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
-                  className="w-full px-5 py-4 text-left text-sm font-semibold text-white flex items-center justify-between gap-4"
+                  className="w-full px-5 py-4 text-left text-xs sm:text-sm font-semibold text-white flex items-center justify-between gap-4"
                 >
                   <span>{faq.q}</span>
                   <ChevronDown
@@ -489,7 +539,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   />
                 </button>
                 {activeFaq === idx && (
-                  <div className="px-5 pb-4 text-xs text-neutral-300 leading-relaxed border-t border-[#1b1f2d] pt-3">
+                  <div className="px-5 pb-4 text-xs text-neutral-400 leading-relaxed border-t border-[#181c28] pt-3">
                     {faq.a}
                   </div>
                 )}
@@ -499,43 +549,99 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* 8. Footer */}
-      <footer className="border-t border-[#1b1f2d] py-12 bg-[#090b10] text-neutral-500 text-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+      {/* Footer */}
+      <footer className="border-t border-[#181c28] py-10 bg-[#07090d] text-neutral-500 text-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-6 h-6 rounded-md bg-indigo-600 flex items-center justify-center text-white font-bold text-xs">
-              R
-            </div>
-            <span className="font-semibold text-white">ResumeFlow</span>
-            <span className="text-neutral-600">•</span>
+            <ResumeFlowLogo size="sm" />
+            <span className="text-neutral-700">•</span>
             <span>Your Career. Your Story. Powered by AI.</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-6">
             <button
-              onClick={() => alert('ResumeFlow Privacy: Your data is stored exclusively in your Supabase database and never sold or used for public model training.')}
+              type="button"
+              onClick={() => setLegalModal('privacy')}
               className="hover:text-white transition"
             >
               Privacy Policy
             </button>
             <button
-              onClick={() => alert('ResumeFlow Terms: Free-tier compliant for personal and professional career management.')}
+              type="button"
+              onClick={() => setLegalModal('terms')}
               className="hover:text-white transition"
             >
-              Terms of Service
+              Terms
             </button>
-            <a href="mailto:support@resumeflow.ai" className="hover:text-white transition">
-              Contact
-            </a>
             <button
-              onClick={() => setConfigModalOpen(true)}
-              className="hover:text-emerald-400 text-emerald-500/80 transition"
+              type="button"
+              onClick={() => setLegalModal('contact')}
+              className="hover:text-white transition"
             >
-              Database Status
+              Contact
             </button>
           </div>
         </div>
       </footer>
+
+      {/* Privacy / Terms / Contact Modal */}
+      {legalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="w-full max-w-md bg-[#101219] border border-[#232736] rounded-2xl p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white">
+                {legalModal === 'privacy' && 'Privacy Policy'}
+                {legalModal === 'terms' && 'Terms of Service'}
+                {legalModal === 'contact' && 'Contact ResumeFlow'}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setLegalModal(null)}
+                className="p-1 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {legalModal === 'privacy' && (
+              <p className="text-xs text-neutral-300 leading-relaxed">
+                ResumeFlow stores your profile and resume documents exclusively in your authenticated Supabase PostgreSQL database protected by Row Level Security. Your resume content is never sold to third parties or shared publicly without your action.
+              </p>
+            )}
+
+            {legalModal === 'terms' && (
+              <p className="text-xs text-neutral-300 leading-relaxed">
+                ResumeFlow is provided for personal and professional career development. You retain full ownership of all resumes, cover letters, and exports you create on the platform.
+              </p>
+            )}
+
+            {legalModal === 'contact' && (
+              <div className="space-y-3 text-xs text-neutral-300">
+                <p className="leading-relaxed">
+                  Questions, feedback, or deployment support? Reach out anytime:
+                </p>
+                <a
+                  href="mailto:support@resumeflow.ai"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#161925] border border-[#252b3d] text-indigo-300 hover:text-indigo-200 transition"
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>support@resumeflow.ai</span>
+                </a>
+              </div>
+            )}
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setLegalModal(null)}
+                className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

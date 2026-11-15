@@ -1,6 +1,8 @@
-import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
-import { ResumeData, ResumeRecord, UserProfile } from '../types/resume';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { ResumeData, ResumeRecord, UserProfile, TemplateDefinition } from '../types/resume';
 export type { UserProfile };
+
+export const PRODUCTION_SITE_URL = 'https://resume-flow-iota.vercel.app';
 
 const STORAGE_KEY_URL = 'resumeflow_supabase_url';
 const STORAGE_KEY_ANON = 'resumeflow_supabase_anon_key';
@@ -13,6 +15,23 @@ export function normalizeSupabaseUrl(rawUrl: string): string {
     return `https://${dashboardMatch[1]}.supabase.co`;
   }
   return trimmed;
+}
+
+// Compute the proper redirect URL for Supabase Auth emails and OAuth callbacks.
+// Supports production Vercel domain (https://resume-flow-iota.vercel.app), localhost, and preview URLs.
+export function getAuthRedirectUrl(path: string = '/auth/callback'): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  if (typeof window !== 'undefined') {
+    const { origin, hostname } = window.location;
+    if (hostname === 'resume-flow-iota.vercel.app') {
+      return `${PRODUCTION_SITE_URL}${normalizedPath}`;
+    }
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || origin.startsWith('http')) {
+      return `${origin}${normalizedPath}`;
+    }
+  }
+  const envSiteUrl = (import.meta.env.VITE_SITE_URL as string) || PRODUCTION_SITE_URL;
+  return `${envSiteUrl.replace(/\/+$/, '')}${normalizedPath}`;
 }
 
 // Read from env or local override
@@ -73,6 +92,7 @@ export function getSupabase(): SupabaseClient | null {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        flowType: 'pkce',
       },
     });
     return supabaseClientInstance;
@@ -98,7 +118,6 @@ export async function testSupabaseConnection(url?: string, key?: string): Promis
     const client = createClient(testUrl, testKey, {
       auth: { persistSession: false },
     });
-    // Ping rest endpoint
     const { error } = await client.from('templates').select('count', { count: 'exact', head: true });
     if (error && error.code !== 'PGRST116' && !error.message.includes('relation "public.templates" does not exist')) {
       if (error.message.includes('relation') || error.code === '42P01') {
@@ -121,39 +140,80 @@ export async function testSupabaseConnection(url?: string, key?: string): Promis
 
 export async function fetchProfile(userId: string): Promise<UserProfile | null> {
   const supabase = getSupabase();
-  if (!supabase) return null;
+  if (!supabase || !userId) return null;
 
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    console.warn('Profile fetch note:', error.message);
+    console.warn('Profile fetch error:', error.message);
     return null;
   }
-  return data as UserProfile;
+  return data as UserProfile | null;
 }
 
-export async function updateProfile(userId: string, updates: Partial<UserProfile>): Promise<{ error: any }> {
+export async function updateProfile(
+  userId: string,
+  updates: { full_name?: string; email?: string; avatar_url?: string }
+): Promise<{ data: UserProfile | null; error: any }> {
   const supabase = getSupabase();
-  if (!supabase) return { error: new Error('Supabase client not configured') };
+  if (!supabase) return { data: null, error: new Error('Supabase client is not configured.') };
 
-  const { error } = await supabase
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
     .from('profiles')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', userId);
+    .upsert(
+      {
+        id: userId,
+        ...updates,
+        updated_at: now,
+      },
+      { onConflict: 'id' }
+    )
+    .select()
+    .single();
 
-  return { error };
+  if (!error && updates.full_name !== undefined) {
+    await supabase.auth.updateUser({
+      data: { full_name: updates.full_name, name: updates.full_name },
+    });
+  }
+
+  return { data: (data as UserProfile) || null, error };
+}
+
+export async function uploadAvatarToStorage(
+  userId: string,
+  file: File
+): Promise<{ url: string | null; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { url: null, error: new Error('Supabase client is not configured.') };
+
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+  const filePath = `${userId}/avatar-${Date.now()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('avatars')
+    .upload(filePath, file, { upsert: true, contentType: file.type });
+
+  if (uploadError) {
+    return { url: null, error: uploadError };
+  }
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+  return { url: data.publicUrl, error: null };
 }
 
 export async function fetchUserResumes(userId: string): Promise<ResumeRecord[]> {
   const supabase = getSupabase();
   if (!supabase) {
-    // Local fallback for guest testing
-    const local = localStorage.getItem(`resumeflow_resumes_${userId || 'guest'}`);
-    return local ? JSON.parse(local) : [];
+    throw new Error('Supabase is not configured. Please verify your project credentials.');
+  }
+  if (!userId) {
+    throw new Error('Authentication required to load resumes.');
   }
 
   const { data, error } = await supabase
@@ -163,10 +223,7 @@ export async function fetchUserResumes(userId: string): Promise<ResumeRecord[]> 
     .order('updated_at', { ascending: false });
 
   if (error) {
-    console.error('Error fetching resumes from Supabase:', error);
-    // Fallback to local
-    const local = localStorage.getItem(`resumeflow_resumes_${userId}`);
-    return local ? JSON.parse(local) : [];
+    throw new Error(error.message || 'Failed to fetch resumes from Supabase.');
   }
 
   return (data || []) as ResumeRecord[];
@@ -174,83 +231,66 @@ export async function fetchUserResumes(userId: string): Promise<ResumeRecord[]> 
 
 export async function fetchResumeById(resumeId: string, userId: string): Promise<ResumeRecord | null> {
   const supabase = getSupabase();
-  if (!supabase) {
-    const list = await fetchUserResumes(userId);
-    return list.find((r) => r.id === resumeId) || null;
-  }
+  if (!supabase || !userId || !resumeId) return null;
 
   const { data, error } = await supabase
     .from('resumes')
     .select('*')
     .eq('id', resumeId)
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
-    console.error('Error fetching resume by id:', error);
-    return null;
+    throw new Error(error.message || 'Failed to fetch resume from Supabase.');
   }
-  return data as ResumeRecord;
+  return data as ResumeRecord | null;
 }
 
 export async function saveResumeToDb(payload: {
   id?: string;
-  user_id: string;
+  user_id?: string;
   title: string;
   template: string;
   resume_data: ResumeData;
 }): Promise<{ data: ResumeRecord | null; error: any }> {
   const supabase = getSupabase();
-  const now = new Date().toISOString();
+  if (!supabase) {
+    return { data: null, error: new Error('Supabase is not configured.') };
+  }
+
+  // Verify real authenticated user from Supabase session rather than trusting client payload
+  const { data: sessionData, error: sessionErr } = await supabase.auth.getUser();
+  const authenticatedUserId = sessionData?.user?.id;
+  if (sessionErr || !authenticatedUserId) {
+    return { data: null, error: new Error('Your session has expired. Please log in again.') };
+  }
 
   // Validate data
   if (!payload.title || !payload.title.trim()) {
     return { data: null, error: new Error('Resume title cannot be empty.') };
   }
-
-  if (!supabase) {
-    // Local storage fallback for sandbox preview
-    const resumeId = payload.id || `local-${Date.now()}`;
-    const record: ResumeRecord = {
-      id: resumeId,
-      user_id: payload.user_id || 'guest-user',
-      title: payload.title.trim(),
-      template: payload.template || 'professional-classic',
-      resume_data: payload.resume_data,
-      created_at: now,
-      updated_at: now,
-    };
-
-    const key = `resumeflow_resumes_${payload.user_id || 'guest'}`;
-    const existing = JSON.parse(localStorage.getItem(key) || '[]');
-    const index = existing.findIndex((r: ResumeRecord) => r.id === resumeId);
-    if (index >= 0) {
-      existing[index] = { ...existing[index], ...record, created_at: existing[index].created_at };
-    } else {
-      existing.unshift(record);
-    }
-    localStorage.setItem(key, JSON.stringify(existing));
-    return { data: record, error: null };
+  if (!payload.resume_data || !payload.resume_data.basics?.name?.trim()) {
+    return { data: null, error: new Error('Candidate full name is required before saving.') };
   }
 
-  // Real Supabase PostgreSQL saving
-  if (payload.id && !payload.id.startsWith('local-')) {
+  const now = new Date().toISOString();
+
+  if (payload.id && !payload.id.startsWith('local-') && !payload.id.startsWith('new-')) {
     // Update existing record
     const { data, error } = await supabase
       .from('resumes')
       .update({
         title: payload.title.trim(),
-        template: payload.template,
+        template: payload.template || 'professional-classic',
         resume_data: payload.resume_data,
         updated_at: now,
       })
       .eq('id', payload.id)
-      .eq('user_id', payload.user_id)
+      .eq('user_id', authenticatedUserId)
       .select()
       .single();
 
     if (error) {
-      console.error('Supabase resume update error:', error);
       return { data: null, error };
     }
     return { data: data as ResumeRecord, error: null };
@@ -259,7 +299,7 @@ export async function saveResumeToDb(payload: {
     const { data, error } = await supabase
       .from('resumes')
       .insert({
-        user_id: payload.user_id,
+        user_id: authenticatedUserId,
         title: payload.title.trim(),
         template: payload.template || 'professional-classic',
         resume_data: payload.resume_data,
@@ -269,7 +309,6 @@ export async function saveResumeToDb(payload: {
       .single();
 
     if (error) {
-      console.error('Supabase resume insert error:', error);
       return { data: null, error };
     }
     return { data: data as ResumeRecord, error: null };
@@ -278,13 +317,7 @@ export async function saveResumeToDb(payload: {
 
 export async function deleteResumeFromDb(resumeId: string, userId: string): Promise<{ error: any }> {
   const supabase = getSupabase();
-  if (!supabase) {
-    const key = `resumeflow_resumes_${userId || 'guest'}`;
-    const existing = JSON.parse(localStorage.getItem(key) || '[]');
-    const filtered = existing.filter((r: ResumeRecord) => r.id !== resumeId);
-    localStorage.setItem(key, JSON.stringify(filtered));
-    return { error: null };
-  }
+  if (!supabase) return { error: new Error('Supabase is not configured.') };
 
   const { error } = await supabase
     .from('resumes')
@@ -296,19 +329,52 @@ export async function deleteResumeFromDb(resumeId: string, userId: string): Prom
 }
 
 export async function duplicateResumeInDb(resumeId: string, userId: string): Promise<{ data: ResumeRecord | null; error: any }> {
-  const supabase = getSupabase();
   const existing = await fetchResumeById(resumeId, userId);
   if (!existing) {
     return { data: null, error: new Error('Resume not found to duplicate.') };
   }
 
-  const newTitle = `${existing.title} (Copy)`;
   return saveResumeToDb({
     user_id: userId,
-    title: newTitle,
+    title: `${existing.title} (Copy)`,
     template: existing.template,
     resume_data: existing.resume_data,
   });
+}
+
+export async function fetchActiveTemplates(): Promise<TemplateDefinition[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('templates')
+    .select('id, name, description, preview_url')
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+
+  if (error || !data) return [];
+  return data as TemplateDefinition[];
+}
+
+export interface AiUsageRecord {
+  id: string;
+  user_id: string;
+  feature: string;
+  created_at: string;
+}
+
+export async function fetchAiUsageHistory(userId: string): Promise<AiUsageRecord[]> {
+  const supabase = getSupabase();
+  if (!supabase || !userId) return [];
+
+  const { data, error } = await supabase
+    .from('ai_usage')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(25);
+
+  if (error || !data) return [];
+  return data as AiUsageRecord[];
 }
 
 export async function recordAiUsageInDb(userId: string, feature: string): Promise<void> {
@@ -318,7 +384,7 @@ export async function recordAiUsageInDb(userId: string, feature: string): Promis
   try {
     await supabase.from('ai_usage').insert({
       user_id: userId,
-      feature: feature,
+      feature,
     });
   } catch (err) {
     console.warn('AI usage recording notice:', err);

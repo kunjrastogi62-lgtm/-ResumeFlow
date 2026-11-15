@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   ResumeData,
-  ResumeRecord,
   INITIAL_RESUME,
 } from '../../types/resume';
 import { ResumeEditorForm } from './ResumeEditorForm';
 import { ResumeRenderer } from '../templates/ResumeRenderer';
-import { saveResumeToDb } from '../../lib/supabase';
+import { AiEnhanceBulletModal } from '../modals/AiEnhanceBulletModal';
+import { AiAtsReviewModal } from '../modals/AiAtsReviewModal';
+import { AiTailorModal } from '../modals/AiTailorModal';
+import { AiCoverLetterModal } from '../modals/AiCoverLetterModal';
+import { AiSummaryModal } from '../modals/AiSummaryModal';
+import { fetchResumeById, saveResumeToDb } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import {
   ArrowLeft,
   Save,
   Download,
-  Share2,
-  Sparkles,
   ShieldCheck,
   Target,
   Mail,
@@ -25,59 +28,92 @@ import {
   Loader2,
   FileDown,
   Upload,
-  Database,
+  Settings,
+  Eye,
+  Edit3,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-interface ResumeBuilderViewProps {
-  initialRecord?: ResumeRecord | null;
-  onResumeDataChange?: (updated: ResumeData) => void;
-  onBackToDashboard: () => void;
-  onOpenATSModal: () => void;
-  onOpenTailorModal: () => void;
-  onOpenCoverLetterModal: () => void;
-  onOpenSummaryModal: () => void;
-  onOpenBulletModal: (bullet: string, roleContext: string, onApply: (newBullet: string) => void) => void;
-}
+export const ResumeBuilderView: React.FC = () => {
+  const { id } = useParams<{ id?: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
-export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
-  initialRecord,
-  onResumeDataChange,
-  onBackToDashboard,
-  onOpenATSModal,
-  onOpenTailorModal,
-  onOpenCoverLetterModal,
-  onOpenSummaryModal,
-  onOpenBulletModal,
-}) => {
-  const { user, setAuthModalOpen, setAuthModalTab } = useAuth();
-  const [currentId, setCurrentId] = useState<string | undefined>(initialRecord?.id);
-  const [title, setTitle] = useState(initialRecord?.title || 'Untitled Professional Resume');
-  const [template, setTemplate] = useState(initialRecord?.template || 'professional-classic');
-  const [resumeData, setResumeData] = useState<ResumeData>(initialRecord?.resume_data || INITIAL_RESUME);
+  const templateParam = searchParams.get('template');
+
+  const [currentId, setCurrentId] = useState<string | undefined>(id);
+  const [title, setTitle] = useState('Untitled Professional Resume');
+  const [template, setTemplate] = useState(templateParam || 'professional-classic');
+  const [resumeData, setResumeData] = useState<ResumeData>(INITIAL_RESUME);
+  const [loadingResume, setLoadingResume] = useState(Boolean(id));
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [zoom, setZoom] = useState(0.85);
+  const [mobilePane, setMobilePane] = useState<'edit' | 'preview'>('edit');
   const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [saveToast, setSaveToast] = useState<{ show: boolean; msg: string; type: 'success' | 'error' }>({
     show: false,
     msg: '',
     type: 'success',
   });
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Sync when initialRecord changes
+  // AI Modals state
+  const [bulletModal, setBulletModal] = useState<{
+    open: boolean;
+    original: string;
+    role: string;
+    onApply: (b: string) => void;
+  }>({
+    open: false,
+    original: '',
+    role: '',
+    onApply: () => {},
+  });
+  const [atsModalOpen, setAtsModalOpen] = useState(false);
+  const [tailorModalOpen, setTailorModalOpen] = useState(false);
+  const [coverLetterModalOpen, setCoverLetterModalOpen] = useState(false);
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+
+  // Load resume from Supabase PostgreSQL when route id changes
   useEffect(() => {
-    if (initialRecord) {
-      setCurrentId(initialRecord.id);
-      setTitle(initialRecord.title);
-      setTemplate(initialRecord.template);
-      setResumeData(initialRecord.resume_data || INITIAL_RESUME);
-      setHasUnsavedChanges(false);
+    let active = true;
+    if (!id || !user) {
+      setCurrentId(undefined);
+      if (templateParam) setTemplate(templateParam);
+      setLoadingResume(false);
+      return;
     }
-  }, [initialRecord]);
 
-  // Handle Save
+    setLoadingResume(true);
+    setLoadError(null);
+    fetchResumeById(id, user.id)
+      .then((record) => {
+        if (!active) return;
+        if (!record) {
+          setLoadError('Resume not found or you do not have permission to view it.');
+        } else {
+          setCurrentId(record.id);
+          setTitle(record.title);
+          setTemplate(record.template || 'professional-classic');
+          setResumeData(record.resume_data || INITIAL_RESUME);
+          setHasUnsavedChanges(false);
+        }
+      })
+      .catch((err: any) => {
+        if (active) setLoadError(err.message || 'Failed to load resume.');
+      })
+      .finally(() => {
+        if (active) setLoadingResume(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [id, user?.id]);
+
   const handleSave = async () => {
-    // 1. Validate the resume data
     if (!title.trim()) {
       setSaveToast({ show: true, msg: 'Resume title cannot be empty.', type: 'error' });
       return;
@@ -86,17 +122,13 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
       setSaveToast({ show: true, msg: 'Candidate name is required.', type: 'error' });
       return;
     }
-
-    // 2. Verify the authenticated Supabase session
     if (!user) {
-      setAuthModalTab('login');
-      setAuthModalOpen(true);
+      navigate('/login');
       return;
     }
 
     setSaving(true);
     try {
-      // 3. Save title, template, and resume_data to the resumes table with auth.uid()
       const { data, error } = await saveResumeToDb({
         id: currentId,
         user_id: user.id,
@@ -109,9 +141,11 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
 
       if (data) {
         setCurrentId(data.id);
+        if (!id) {
+          navigate(`/builder/${data.id}`, { replace: true });
+        }
       }
       setHasUnsavedChanges(false);
-      // 6. Show: "Resume saved successfully."
       setSaveToast({ show: true, msg: 'Resume saved successfully.', type: 'success' });
       setTimeout(() => setSaveToast({ show: false, msg: '', type: 'success' }), 3500);
     } catch (err: any) {
@@ -124,11 +158,11 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
   const handleExportPDF = () => {
     try {
       confetti({
-        particleCount: 50,
-        spread: 60,
+        particleCount: 45,
+        spread: 55,
         origin: { y: 0.7 },
       });
-    } catch (e) {
+    } catch {
       // ignore
     }
     window.print();
@@ -160,40 +194,65 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
         const parsed = JSON.parse(event.target?.result as string);
         if (parsed.resumeData) {
           setResumeData(parsed.resumeData);
-          onResumeDataChange?.(parsed.resumeData);
           if (parsed.title) setTitle(parsed.title);
           if (parsed.template) setTemplate(parsed.template);
           setHasUnsavedChanges(true);
         } else if (parsed.basics) {
           setResumeData(parsed);
-          onResumeDataChange?.(parsed);
           setHasUnsavedChanges(true);
+        } else {
+          setSaveToast({ show: true, msg: 'Unrecognized JSON resume format.', type: 'error' });
         }
-      } catch (err) {
-        alert('Invalid JSON file format.');
+      } catch {
+        setSaveToast({ show: true, msg: 'Invalid JSON file.', type: 'error' });
       }
     };
     reader.readAsText(file);
   };
 
+  if (loadingResume) {
+    return (
+      <div className="min-h-screen bg-[#090b10] flex flex-col items-center justify-center gap-3 text-xs text-neutral-400">
+        <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
+        <span>Loading resume from Supabase PostgreSQL...</span>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-[#090b10] flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs max-w-md flex items-center gap-2.5">
+          <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+          <span>{loadError}</span>
+        </div>
+        <Link
+          to="/dashboard"
+          className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
+        >
+          Back to Dashboard
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-screen bg-[#0b0d13] text-[#e2e8f0] overflow-hidden">
-      {/* 1. Header Toolbar */}
-      <header className="no-print h-14 bg-[#11131a] border-b border-[#232736] px-4 flex items-center justify-between z-30 shrink-0">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBackToDashboard}
-            className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-neutral-800 transition flex items-center gap-1.5 text-xs font-medium"
+    <div className="flex flex-col h-screen bg-[#090b10] text-[#e2e8f0] overflow-hidden">
+      {/* Header Toolbar */}
+      <header className="no-print h-14 bg-[#101219] border-b border-[#1f2433] px-3 sm:px-4 flex items-center justify-between z-30 shrink-0 gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Link
+            to="/dashboard"
+            className="p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-[#191d2b] transition flex items-center gap-1.5 text-xs font-medium shrink-0"
             title="Back to Dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Dashboard</span>
-          </button>
+          </Link>
 
-          <div className="h-4 w-px bg-[#232736]" />
+          <div className="h-4 w-px bg-[#232736] shrink-0" />
 
-          {/* Editable Title */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <input
               type="text"
               value={title}
@@ -201,7 +260,7 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
                 setTitle(e.target.value);
                 setHasUnsavedChanges(true);
               }}
-              className="text-xs font-bold text-white bg-transparent border-b border-transparent hover:border-[#232736] focus:border-indigo-500 focus:outline-none px-1.5 py-0.5 rounded max-w-[200px] sm:max-w-[280px]"
+              className="text-xs font-bold text-white bg-transparent border-b border-transparent hover:border-[#232736] focus:border-indigo-500 focus:outline-none px-1.5 py-0.5 rounded w-32 sm:w-56 truncate"
             />
             {hasUnsavedChanges && (
               <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Unsaved changes" />
@@ -209,18 +268,16 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
           </div>
         </div>
 
-        {/* Center / Right controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Template Selector */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-neutral-500 hidden md:inline">Template:</span>
+        {/* Right Controls */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <div className="hidden sm:flex items-center gap-1.5 text-xs">
             <select
               value={template}
               onChange={(e) => {
                 setTemplate(e.target.value);
                 setHasUnsavedChanges(true);
               }}
-              className="px-2.5 py-1 text-xs bg-[#0a0c12] border border-[#232736] rounded-lg text-white focus:outline-none focus:border-indigo-500"
+              className="px-2.5 py-1 text-xs bg-[#090b10] border border-[#232736] rounded-lg text-white focus:outline-none focus:border-indigo-500"
             >
               <option value="professional-classic">Professional Classic</option>
               <option value="modern-minimalist">Modern Minimalist</option>
@@ -230,90 +287,134 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
             </select>
           </div>
 
-          {/* AI Tools Menu */}
-          <div className="hidden lg:flex items-center gap-1.5">
+          {/* AI Tools */}
+          <div className="flex items-center gap-1">
             <button
-              onClick={onOpenATSModal}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 transition"
+              onClick={() => setAtsModalOpen(true)}
+              className="px-2 sm:px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5 transition"
+              title="ATS Score"
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>ATS Score</span>
+              <span className="hidden lg:inline">ATS Score</span>
             </button>
             <button
-              onClick={onOpenTailorModal}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 flex items-center gap-1.5 transition"
+              onClick={() => setTailorModalOpen(true)}
+              className="px-2 sm:px-2.5 py-1 text-xs font-medium rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/20 flex items-center gap-1.5 transition"
+              title="Tailor to Job"
             >
               <Target className="w-3.5 h-3.5" />
-              <span>Tailor to Job</span>
+              <span className="hidden lg:inline">Tailor to Job</span>
             </button>
             <button
-              onClick={onOpenCoverLetterModal}
-              className="px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/20 flex items-center gap-1.5 transition"
+              onClick={() => setCoverLetterModalOpen(true)}
+              className="px-2 sm:px-2.5 py-1 text-xs font-medium rounded-lg bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/20 flex items-center gap-1.5 transition"
+              title="Cover Letter"
             >
               <Mail className="w-3.5 h-3.5" />
-              <span>Cover Letter</span>
+              <span className="hidden lg:inline">Cover Letter</span>
             </button>
           </div>
 
           <div className="h-4 w-px bg-[#232736] hidden sm:block" />
 
-          {/* Save Button */}
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 transition shadow-sm disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center gap-1.5 transition disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save to Supabase'}</span>
-            <span className="sm:hidden">Save</span>
+            <span className="hidden sm:inline">{saving ? 'Saving...' : 'Save'}</span>
           </button>
 
-          {/* Export PDF Button */}
           <button
             onClick={handleExportPDF}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#1a1e2c] hover:bg-[#23283a] text-white border border-[#2e344a] flex items-center gap-1.5 transition"
-            title="Download PDF via Vector Print Engine"
+            className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#181c29] hover:bg-[#212638] text-white border border-[#2a3045] flex items-center gap-1.5 transition"
+            title="Download PDF"
           >
             <Download className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Download PDF</span>
+            <span className="hidden md:inline">PDF</span>
           </button>
+
+          <Link
+            to="/settings"
+            className="hidden sm:flex p-1.5 text-neutral-400 hover:text-white rounded-lg hover:bg-[#191d2b] transition"
+            title="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
         </div>
       </header>
+
+      {/* Mobile Edit / Preview Toggle */}
+      <div className="no-print md:hidden flex border-b border-[#1f2433] bg-[#0d0f17] text-xs">
+        <button
+          type="button"
+          onClick={() => setMobilePane('edit')}
+          className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 font-medium border-b-2 transition ${
+            mobilePane === 'edit' ? 'border-indigo-500 text-white' : 'border-transparent text-neutral-400'
+          }`}
+        >
+          <Edit3 className="w-3.5 h-3.5" />
+          <span>Edit Content</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobilePane('preview')}
+          className={`flex-1 py-2.5 flex items-center justify-center gap-1.5 font-medium border-b-2 transition ${
+            mobilePane === 'preview' ? 'border-indigo-500 text-white' : 'border-transparent text-neutral-400'
+          }`}
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span>Live Preview</span>
+        </button>
+      </div>
 
       {/* Save Toast Notification */}
       {saveToast.show && (
         <div
-          className={`no-print fixed top-16 right-6 z-50 px-4 py-2.5 rounded-xl border shadow-2xl flex items-center gap-2 text-xs font-medium animate-in slide-in-from-top-2 duration-200 ${
+          className={`no-print fixed top-16 right-6 z-50 px-4 py-2.5 rounded-xl border shadow-2xl flex items-center gap-2 text-xs font-medium ${
             saveToast.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-200'
+              : 'bg-rose-500/15 border-rose-500/30 text-rose-200'
           }`}
         >
-          {saveToast.type === 'success' ? <Check className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-rose-400" />}
+          {saveToast.type === 'success' ? (
+            <Check className="w-4 h-4 text-emerald-400" />
+          ) : (
+            <AlertCircle className="w-4 h-4 text-rose-400" />
+          )}
           <span>{saveToast.msg}</span>
         </div>
       )}
 
-      {/* 2. Workspace Body: Split Form + Live Preview Canvas */}
+      {/* Workspace Split Panes */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Pane: Editor Form */}
-        <section className="no-print w-full md:w-[480px] lg:w-[540px] shrink-0 border-r border-[#232736] flex flex-col bg-[#11131a] overflow-hidden">
+        {/* Editor Form */}
+        <section
+          className={`no-print w-full md:w-[460px] lg:w-[520px] shrink-0 border-r border-[#1f2433] flex-col bg-[#101219] overflow-hidden ${
+            mobilePane === 'edit' ? 'flex' : 'hidden md:flex'
+          }`}
+        >
           <ResumeEditorForm
             data={resumeData}
             onChange={(updated) => {
               setResumeData(updated);
-              onResumeDataChange?.(updated);
               setHasUnsavedChanges(true);
             }}
-            onOpenBulletEnhancer={onOpenBulletModal}
-            onOpenSummaryGenerator={onOpenSummaryModal}
+            onOpenBulletEnhancer={(bullet, role, onApply) => {
+              setBulletModal({ open: true, original: bullet, role, onApply });
+            }}
+            onOpenSummaryGenerator={() => setSummaryModalOpen(true)}
           />
         </section>
 
-        {/* Right Pane: Live Resume Canvas */}
-        <section className="flex-1 flex flex-col bg-[#07080c] overflow-hidden relative">
-          {/* Canvas Floating Controls */}
-          <div className="no-print absolute top-3 right-4 z-20 flex items-center gap-1.5 bg-[#141724]/90 backdrop-blur-md p-1.5 rounded-xl border border-[#232736] text-xs">
+        {/* Live Canvas */}
+        <section
+          className={`flex-1 flex-col bg-[#06070b] overflow-hidden relative ${
+            mobilePane === 'preview' ? 'flex' : 'hidden md:flex'
+          }`}
+        >
+          <div className="no-print absolute top-3 right-4 z-20 flex items-center gap-1.5 bg-[#121521]/90 backdrop-blur-md p-1.5 rounded-xl border border-[#232736] text-xs">
             <button
               onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.05).toFixed(2))))}
               className="p-1 text-neutral-400 hover:text-white rounded hover:bg-neutral-800"
@@ -342,18 +443,17 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
             <button
               onClick={handleExportJson}
               className="p-1 text-neutral-400 hover:text-white rounded hover:bg-neutral-800"
-              title="Export Resume JSON"
+              title="Export JSON"
             >
               <FileDown className="w-3.5 h-3.5" />
             </button>
 
-            <label className="p-1 text-neutral-400 hover:text-white rounded hover:bg-neutral-800 cursor-pointer" title="Import Resume JSON">
+            <label className="p-1 text-neutral-400 hover:text-white rounded hover:bg-neutral-800 cursor-pointer" title="Import JSON">
               <Upload className="w-3.5 h-3.5" />
               <input type="file" accept=".json" onChange={handleImportJson} className="hidden" />
             </label>
           </div>
 
-          {/* Scrollable Canvas Area */}
           <div className="flex-1 overflow-auto p-4 sm:p-8 flex items-start justify-center">
             <div className="py-2">
               <ResumeRenderer data={resumeData} template={template} zoom={zoom} />
@@ -361,6 +461,66 @@ export const ResumeBuilderView: React.FC<ResumeBuilderViewProps> = ({
           </div>
         </section>
       </div>
+
+      {/* AI Modals */}
+      <AiEnhanceBulletModal
+        isOpen={bulletModal.open}
+        onClose={() => setBulletModal((prev) => ({ ...prev, open: false }))}
+        originalBullet={bulletModal.original}
+        roleContext={bulletModal.role}
+        onApply={(newBullet) => {
+          bulletModal.onApply(newBullet);
+          setHasUnsavedChanges(true);
+        }}
+      />
+
+      <AiAtsReviewModal
+        isOpen={atsModalOpen}
+        onClose={() => setAtsModalOpen(false)}
+        resumeData={resumeData}
+      />
+
+      <AiTailorModal
+        isOpen={tailorModalOpen}
+        onClose={() => setTailorModalOpen(false)}
+        resumeData={resumeData}
+        onApplyBullet={(secIdx, itemIdx, suggested) => {
+          setResumeData((prev) => ({
+            ...prev,
+            work: prev.work.map((w, idx) =>
+              idx === secIdx
+                ? {
+                    ...w,
+                    highlights: w.highlights.map((h, hIdx) => (hIdx === itemIdx ? suggested : h)),
+                  }
+                : w
+            ),
+          }));
+          setHasUnsavedChanges(true);
+        }}
+      />
+
+      <AiCoverLetterModal
+        isOpen={coverLetterModalOpen}
+        onClose={() => setCoverLetterModalOpen(false)}
+        resumeData={resumeData}
+      />
+
+      <AiSummaryModal
+        isOpen={summaryModalOpen}
+        onClose={() => setSummaryModalOpen(false)}
+        resumeData={resumeData}
+        onApply={(summary) => {
+          setResumeData((prev) => ({
+            ...prev,
+            basics: {
+              ...prev.basics,
+              summary,
+            },
+          }));
+          setHasUnsavedChanges(true);
+        }}
+      />
     </div>
   );
 };

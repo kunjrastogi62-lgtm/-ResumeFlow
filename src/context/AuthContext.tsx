@@ -1,6 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
-import { getSupabase, isSupabaseConfigured, fetchProfile, UserProfile } from '../lib/supabase';
+import {
+  getSupabase,
+  isSupabaseConfigured,
+  fetchProfile,
+  UserProfile,
+  getAuthRedirectUrl,
+} from '../lib/supabase';
 
 interface AuthContextType {
   user: User | null;
@@ -8,10 +14,17 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isConfigured: boolean;
+  isRecoverySession: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | Error | null }>;
-  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | Error | null; needsEmailConfirmation?: boolean }>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+    fullName: string
+  ) => Promise<{ error: AuthError | Error | null; needsEmailConfirmation?: boolean }>;
+  resendVerificationEmail: (email: string) => Promise<{ error: AuthError | Error | null }>;
   signInWithGoogle: () => Promise<{ error: AuthError | Error | null }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | Error | null }>;
+  updatePassword: (newPassword: string) => Promise<{ error: AuthError | Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   authModalOpen: boolean;
@@ -25,12 +38,34 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+export function formatAuthError(err: any): string {
+  if (!err) return 'An unexpected authentication error occurred.';
+  const msg = String(err.message || err);
+  if (msg.toLowerCase().includes('invalid login credentials')) {
+    return 'Incorrect email or password. Please double-check your credentials and try again.';
+  }
+  if (msg.toLowerCase().includes('email not confirmed')) {
+    return 'Your email address has not been verified yet. Please check your inbox or resend the verification email.';
+  }
+  if (msg.toLowerCase().includes('user already registered')) {
+    return 'An account with this email already exists. Try signing in instead.';
+  }
+  if (msg.toLowerCase().includes('provider is not enabled') || msg.toLowerCase().includes('unsupported provider')) {
+    return 'Google OAuth is not enabled yet in your Supabase Authentication Providers settings.';
+  }
+  if (msg.toLowerCase().includes('rate limit')) {
+    return 'Too many requests in a short time. Please wait a moment before trying again.';
+  }
+  return msg;
+}
+
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isConfigured, setIsConfigured] = useState<boolean>(isSupabaseConfigured());
+  const [isRecoverySession, setIsRecoverySession] = useState<boolean>(false);
 
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup' | 'reset'>('login');
@@ -58,7 +93,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
 
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -68,10 +102,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(false);
     });
 
-    // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoverySession(true);
+      } else if (event === 'SIGNED_OUT') {
+        setIsRecoverySession(false);
+      }
+
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
@@ -90,7 +129,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signInWithEmail = async (email: string, password: string) => {
     const supabase = getSupabase();
     if (!supabase) {
-      return { error: new Error('Supabase is not configured. Please add your credentials in Project Settings.') };
+      return { error: new Error('Supabase is not configured. Please verify your project credentials.') };
     }
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -102,13 +141,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
     const supabase = getSupabase();
     if (!supabase) {
-      return { error: new Error('Supabase is not configured. Please add your credentials in Project Settings.') };
+      return { error: new Error('Supabase is not configured. Please verify your project credentials.') };
     }
 
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
+        emailRedirectTo: getAuthRedirectUrl('/auth/callback'),
         data: {
           full_name: fullName.trim(),
           name: fullName.trim(),
@@ -120,16 +160,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return { error, needsEmailConfirmation };
   };
 
+  const resendVerificationEmail = async (email: string) => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return { error: new Error('Supabase is not configured.') };
+    }
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim(),
+      options: {
+        emailRedirectTo: getAuthRedirectUrl('/auth/callback'),
+      },
+    });
+    return { error };
+  };
+
   const signInWithGoogle = async () => {
     const supabase = getSupabase();
     if (!supabase) {
-      return { error: new Error('Supabase is not configured. Please add your credentials in Project Settings.') };
+      return { error: new Error('Supabase is not configured. Please verify your project credentials.') };
     }
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: getAuthRedirectUrl('/auth/callback'),
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     });
     return { error };
@@ -138,11 +197,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const resetPassword = async (email: string) => {
     const supabase = getSupabase();
     if (!supabase) {
-      return { error: new Error('Supabase is not configured. Please add your credentials in Project Settings.') };
+      return { error: new Error('Supabase is not configured. Please verify your project credentials.') };
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/#reset-password`,
+      redirectTo: getAuthRedirectUrl('/reset-password'),
     });
+    return { error };
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    const supabase = getSupabase();
+    if (!supabase) {
+      return { error: new Error('Supabase is not configured.') };
+    }
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (!error) {
+      setIsRecoverySession(false);
+    }
     return { error };
   };
 
@@ -154,6 +225,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
     setProfile(null);
     setSession(null);
+    setIsRecoverySession(false);
   };
 
   const refreshProfile = async () => {
@@ -170,10 +242,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         session,
         loading,
         isConfigured,
+        isRecoverySession,
         signInWithEmail,
         signUpWithEmail,
+        resendVerificationEmail,
         signInWithGoogle,
         resetPassword,
+        updatePassword,
         signOut,
         refreshProfile,
         authModalOpen,

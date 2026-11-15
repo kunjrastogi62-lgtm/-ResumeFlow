@@ -3,182 +3,158 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
+import { Loader2 } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LandingPage } from './components/landing/LandingPage';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { ResumeBuilderView } from './components/editor/ResumeBuilderView';
-import { AuthModal } from './components/modals/AuthModal';
+import { SettingsPage } from './components/settings/SettingsPage';
+import {
+  LoginPage,
+  SignupPage,
+  ForgotPasswordPage,
+  ResetPasswordPage,
+  AuthCallbackPage,
+} from './components/auth/AuthPages';
 import { SupabaseConfigModal } from './components/modals/SupabaseConfigModal';
-import { AiEnhanceBulletModal } from './components/modals/AiEnhanceBulletModal';
-import { AiAtsReviewModal } from './components/modals/AiAtsReviewModal';
-import { AiTailorModal } from './components/modals/AiTailorModal';
-import { AiCoverLetterModal } from './components/modals/AiCoverLetterModal';
-import { AiSummaryModal } from './components/modals/AiSummaryModal';
-import { ResumeRecord, INITIAL_RESUME, ResumeData } from './types/resume';
 
-function AppContent() {
-  const { user, configModalOpen, setConfigModalOpen } = useAuth();
+const AuthLoadingScreen: React.FC = () => (
+  <div className="min-h-screen bg-[#090b10] flex flex-col items-center justify-center gap-3 text-xs text-neutral-400">
+    <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
+    <span>Loading ResumeFlow...</span>
+  </div>
+);
 
-  const [view, setView] = useState<'landing' | 'dashboard' | 'editor'>('landing');
-  const [activeResumeRecord, setActiveResumeRecord] = useState<ResumeRecord | null>(null);
+// Requires authenticated user; redirects logged-out visitors to /login
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
 
-  // Active builder resume data (for modals that need current state)
-  const [activeResumeData, setActiveResumeData] = useState<ResumeData>(INITIAL_RESUME);
+  if (loading) return <AuthLoadingScreen />;
 
-  // Modals state
-  const [bulletModal, setBulletModal] = useState<{
-    open: boolean;
-    original: string;
-    role: string;
-    onApply: (b: string) => void;
-  }>({
-    open: false,
-    original: '',
-    role: '',
-    onApply: () => {},
-  });
+  if (!user) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
+  }
 
-  const [atsModalOpen, setAtsModalOpen] = useState(false);
-  const [tailorModalOpen, setTailorModalOpen] = useState(false);
-  const [coverLetterModalOpen, setCoverLetterModalOpen] = useState(false);
-  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  return <>{children}</>;
+};
 
-  // Navigation handlers
-  const handleStartBuilding = (templateId?: string) => {
-    const defaultData = {
-      ...INITIAL_RESUME,
-    };
-    setActiveResumeRecord({
-      id: `local-${Date.now()}`,
-      user_id: user?.id || 'guest',
-      title: 'My AI Resume',
-      template: templateId || 'professional-classic',
-      resume_data: defaultData,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    setActiveResumeData(defaultData);
-    setView('editor');
-  };
+// Redirects already authenticated users away from /login, /signup, /forgot-password to /dashboard
+const PublicAuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
 
-  const handleOpenResumeFromDashboard = (record: ResumeRecord) => {
-    setActiveResumeRecord(record);
-    setActiveResumeData(record.resume_data || INITIAL_RESUME);
-    setView('editor');
-  };
+  if (loading) return <AuthLoadingScreen />;
+
+  if (user) {
+    const target = (location.state as any)?.from || '/dashboard';
+    return <Navigate to={target} replace />;
+  }
+
+  return <>{children}</>;
+};
+
+function AppRoutes() {
+  const { isRecoverySession, configModalOpen, setConfigModalOpen } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (isRecoverySession && location.pathname !== '/reset-password') {
+      navigate('/reset-password', { replace: true });
+    }
+  }, [isRecoverySession, location.pathname, navigate]);
 
   return (
-    <div className="min-h-screen bg-[#0b0d13] text-[#e2e8f0]">
-      {/* View routing */}
-      {view === 'landing' && (
-        <LandingPage
-          onStartBuilding={handleStartBuilding}
-          onExploreTemplates={() => {
-            const el = document.getElementById('templates');
-            el?.scrollIntoView({ behavior: 'smooth' });
-          }}
-          onOpenDashboard={() => setView('dashboard')}
-        />
-      )}
+    <div className="min-h-screen bg-[#090b10] text-[#e2e8f0]">
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-      {view === 'dashboard' && (
-        <Dashboard
-          onOpenResume={handleOpenResumeFromDashboard}
-          onCreateNew={() => handleStartBuilding()}
-          onBackToHome={() => setView('landing')}
-        />
-      )}
-
-      {view === 'editor' && (
-        <ResumeBuilderView
-          initialRecord={activeResumeRecord}
-          onResumeDataChange={(updated) => setActiveResumeData(updated)}
-          onBackToDashboard={() => setView(user ? 'dashboard' : 'landing')}
-          onOpenATSModal={() => setAtsModalOpen(true)}
-          onOpenTailorModal={() => setTailorModalOpen(true)}
-          onOpenCoverLetterModal={() => setCoverLetterModalOpen(true)}
-          onOpenSummaryModal={() => setSummaryModalOpen(true)}
-          onOpenBulletModal={(bullet, role, onApply) => {
-            setBulletModal({
-              open: true,
-              original: bullet,
-              role,
-              onApply,
-            });
-          }}
-        />
-      )}
-
-      {/* Global Modals */}
-      <AuthModal />
-      <SupabaseConfigModal isOpen={configModalOpen} onClose={() => setConfigModalOpen(false)} />
-
-      {/* AI Bullet Enhancer Modal */}
-      <AiEnhanceBulletModal
-        isOpen={bulletModal.open}
-        onClose={() => setBulletModal((prev) => ({ ...prev, open: false }))}
-        originalBullet={bulletModal.original}
-        roleContext={bulletModal.role}
-        onApply={bulletModal.onApply}
-      />
-
-      {/* AI ATS Review Modal */}
-      <AiAtsReviewModal
-        isOpen={atsModalOpen}
-        onClose={() => setAtsModalOpen(false)}
-        resumeData={activeResumeData}
-      />
-
-      {/* AI Tailor to Job Modal */}
-      <AiTailorModal
-        isOpen={tailorModalOpen}
-        onClose={() => setTailorModalOpen(false)}
-        resumeData={activeResumeData}
-        onApplyBullet={(secIdx, itemIdx, suggested) => {
-          const updated = {
-            ...activeResumeData,
-            work: activeResumeData.work.map((w, idx) =>
-              idx === secIdx
-                ? {
-                    ...w,
-                    highlights: w.highlights.map((h, hIdx) => (hIdx === itemIdx ? suggested : h)),
-                  }
-                : w
-            ),
-          };
-          setActiveResumeData(updated);
-          if (activeResumeRecord) {
-            setActiveResumeRecord({ ...activeResumeRecord, resume_data: updated });
+        {/* Auth Routes (redirect to /dashboard if already authenticated) */}
+        <Route
+          path="/login"
+          element={
+            <PublicAuthRoute>
+              <LoginPage />
+            </PublicAuthRoute>
           }
-        }}
-      />
-
-      {/* AI Cover Letter Modal */}
-      <AiCoverLetterModal
-        isOpen={coverLetterModalOpen}
-        onClose={() => setCoverLetterModalOpen(false)}
-        resumeData={activeResumeData}
-      />
-
-      {/* AI Summary Modal */}
-      <AiSummaryModal
-        isOpen={summaryModalOpen}
-        onClose={() => setSummaryModalOpen(false)}
-        resumeData={activeResumeData}
-        onApply={(summary) => {
-          const updated = {
-            ...activeResumeData,
-            basics: {
-              ...activeResumeData.basics,
-              summary,
-            },
-          };
-          setActiveResumeData(updated);
-          if (activeResumeRecord) {
-            setActiveResumeRecord({ ...activeResumeRecord, resume_data: updated });
+        />
+        <Route
+          path="/signup"
+          element={
+            <PublicAuthRoute>
+              <SignupPage />
+            </PublicAuthRoute>
           }
-        }}
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicAuthRoute>
+              <ForgotPasswordPage />
+            </PublicAuthRoute>
+          }
+        />
+
+        {/* Protected Routes (require authenticated session) */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/builder"
+          element={
+            <ProtectedRoute>
+              <ResumeBuilderView />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/builder/:id"
+          element={
+            <ProtectedRoute>
+              <ResumeBuilderView />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      <SupabaseConfigModal
+        isOpen={configModalOpen}
+        onClose={() => setConfigModalOpen(false)}
       />
     </div>
   );
@@ -186,8 +162,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
