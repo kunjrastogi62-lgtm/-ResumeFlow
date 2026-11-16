@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Database, Check, Copy, ExternalLink, RefreshCw, Key, Shield, AlertCircle } from 'lucide-react';
 import {
   getStoredSupabaseConfig,
@@ -22,6 +22,15 @@ export const SupabaseConfigModal: React.FC<SupabaseConfigModalProps> = ({ isOpen
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
   const [activeTab, setActiveTab] = useState<'credentials' | 'sql'>('credentials');
+
+  useEffect(() => {
+    if (isOpen) {
+      const latest = getStoredSupabaseConfig();
+      setUrl(latest.url || '');
+      setAnonKey(latest.anonKey || '');
+      setTestResult(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

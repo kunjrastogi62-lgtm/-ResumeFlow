@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Target, Sparkles, Loader2, Check, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
 import { tailorResumeToJob, TailorResult } from '../../lib/ai-service';
 import { ResumeData } from '../../types/resume';
@@ -8,7 +8,7 @@ interface AiTailorModalProps {
   isOpen: boolean;
   onClose: () => void;
   resumeData: ResumeData;
-  onApplyBullet?: (sectionIndex: number, itemIndex: number, newBullet: string) => void;
+  onApplyBullet?: (sectionIndex: number, itemIndex: number, newBullet: string, originalBullet?: string) => void;
 }
 
 export const AiTailorModal: React.FC<AiTailorModalProps> = ({
@@ -24,6 +24,13 @@ export const AiTailorModal: React.FC<AiTailorModalProps> = ({
   const [result, setResult] = useState<TailorResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [appliedIndices, setAppliedIndices] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTargetTitle((prev) => prev || resumeData.basics.label || '');
+      setError(null);
+    }
+  }, [isOpen, resumeData.basics.label]);
 
   if (!isOpen) return null;
 
@@ -49,7 +56,7 @@ export const AiTailorModal: React.FC<AiTailorModalProps> = ({
 
   const handleApply = (idx: number, b: any) => {
     if (onApplyBullet) {
-      onApplyBullet(b.sectionIndex ?? 0, b.itemIndex ?? 0, b.suggested);
+      onApplyBullet(b.sectionIndex ?? 0, b.itemIndex ?? 0, b.suggested, b.original);
       setAppliedIndices((prev) => [...prev, idx]);
     }
   };
@@ -228,7 +235,7 @@ export const AiTailorModal: React.FC<AiTailorModalProps> = ({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-[#232736] bg-[#161922]">
-          <span className="text-[11px] text-neutral-500">Gemini 3.8 Job Match Engine</span>
+          <span className="text-[11px] text-neutral-500">Gemini Job Match Engine</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white transition"

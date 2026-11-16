@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Check, ArrowRight, Loader2, FileText } from 'lucide-react';
 import { generateSummary, SummaryVariation } from '../../lib/ai-service';
 import { ResumeData } from '../../types/resume';
@@ -21,10 +21,18 @@ export const AiSummaryModal: React.FC<AiSummaryModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState(resumeData.basics.label || '');
   const [targetRole, setTargetRole] = useState(resumeData.basics.label || '');
-  const [experienceYears, setExperienceYears] = useState('5+ years');
+  const [experienceYears, setExperienceYears] = useState('5-8 years (Senior)');
   const [summaries, setSummaries] = useState<SummaryVariation[]>([]);
   const [selectedText, setSelectedText] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTitle(resumeData.basics.label || '');
+      setTargetRole(resumeData.basics.label || '');
+      setError(null);
+    }
+  }, [isOpen, resumeData.basics.label]);
 
   if (!isOpen) return null;
 
@@ -83,7 +91,7 @@ export const AiSummaryModal: React.FC<AiSummaryModalProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-neutral-400 mb-1">Current Title</label>
               <input
@@ -91,6 +99,16 @@ export const AiSummaryModal: React.FC<AiSummaryModalProps> = ({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Lead Software Architect"
+                className="w-full px-3 py-2 text-xs bg-[#0a0c12] border border-[#232736] rounded-lg text-white focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-neutral-400 mb-1">Target Role</label>
+              <input
+                type="text"
+                value={targetRole}
+                onChange={(e) => setTargetRole(e.target.value)}
+                placeholder="e.g. Principal Engineer"
                 className="w-full px-3 py-2 text-xs bg-[#0a0c12] border border-[#232736] rounded-lg text-white focus:outline-none focus:border-indigo-500"
               />
             </div>
@@ -161,7 +179,7 @@ export const AiSummaryModal: React.FC<AiSummaryModalProps> = ({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-[#232736] bg-[#161922]">
-          <span className="text-[11px] text-neutral-500">Gemini 3.8 Flash</span>
+          <span className="text-[11px] text-neutral-500">Powered by Google Gemini AI</span>
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}

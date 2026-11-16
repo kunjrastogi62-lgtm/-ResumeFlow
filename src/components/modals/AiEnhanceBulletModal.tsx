@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Check, ArrowRight, Loader2, Lightbulb } from 'lucide-react';
 import { enhanceBulletPoint, EnhanceBulletResult } from '../../lib/ai-service';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +24,15 @@ export const AiEnhanceBulletModal: React.FC<AiEnhanceBulletModalProps> = ({
   const [result, setResult] = useState<EnhanceBulletResult | null>(null);
   const [selectedBullet, setSelectedBullet] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setRole(roleContext);
+      setResult(null);
+      setSelectedBullet('');
+      setError(null);
+    }
+  }, [isOpen, originalBullet, roleContext]);
 
   if (!isOpen) return null;
 
@@ -173,7 +182,7 @@ export const AiEnhanceBulletModal: React.FC<AiEnhanceBulletModalProps> = ({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-[#232736] bg-[#161922]">
-          <span className="text-[11px] text-neutral-500">Google Gemini 3.8 Flash model</span>
+          <span className="text-[11px] text-neutral-500">Powered by Google Gemini AI</span>
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}

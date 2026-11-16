@@ -4,17 +4,37 @@ export type { UserProfile };
 
 export const PRODUCTION_SITE_URL = 'https://resume-flow-iota.vercel.app';
 
+const DEFAULT_SUPABASE_URL = 'https://tzfdzzleqlawvnvfvwma.supabase.co';
+const DEFAULT_SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_i4OnpucYw2RSwimq4pdy6Q_pVCpnZRI';
+
 const STORAGE_KEY_URL = 'resumeflow_supabase_url';
 const STORAGE_KEY_ANON = 'resumeflow_supabase_anon_key';
 
-// Normalize Supabase Dashboard URLs (e.g. https://supabase.com/dashboard/project/<ref>) to API URL (https://<ref>.supabase.co)
+// Normalize Supabase URLs (handles dashboard URLs, accidental KEY= prefixes, whitespace, and trailing slashes)
 export function normalizeSupabaseUrl(rawUrl: string): string {
-  const trimmed = (rawUrl || '').trim().replace(/\/+$/, '');
-  const dashboardMatch = trimmed.match(/^https?:\/\/(?:app\.)?supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
+  let trimmed = (rawUrl || '').trim();
+  if (!trimmed) return '';
+  trimmed = trimmed.replace(/^VITE_SUPABASE_URL=/i, '').replace(/^["']|["']$/g, '').trim().replace(/\/+$/, '');
+  const dashboardMatch = trimmed.match(/https?:\/\/(?:app\.)?supabase\.com\/dashboard\/project\/([a-z0-9]+)/i);
   if (dashboardMatch?.[1]) {
     return `https://${dashboardMatch[1]}.supabase.co`;
   }
+  const apiMatch = trimmed.match(/https?:\/\/([a-z0-9-]+)\.supabase\.co/i);
+  if (apiMatch?.[0]) {
+    return apiMatch[0];
+  }
   return trimmed;
+}
+
+// Extract clean Supabase publishable or anon JWT key even if pasted with KEY= prefixes or extra text
+export function normalizeSupabaseKey(rawKey: string): string {
+  const trimmed = (rawKey || '').trim().replace(/^["']|["']$/g, '');
+  if (!trimmed) return '';
+  const pubMatch = trimmed.match(/sb_publishable_[A-Za-z0-9_-]+/);
+  if (pubMatch?.[0]) return pubMatch[0];
+  const jwtMatch = trimmed.match(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+  if (jwtMatch?.[0]) return jwtMatch[0];
+  return trimmed.replace(/^VITE_SUPABASE_(?:PUBLISHABLE|ANON)_KEY=/i, '').trim();
 }
 
 // Compute the proper redirect URL for Supabase Auth emails and OAuth callbacks.
@@ -34,21 +54,29 @@ export function getAuthRedirectUrl(path: string = '/auth/callback'): string {
   return `${envSiteUrl.replace(/\/+$/, '')}${normalizedPath}`;
 }
 
-// Read from env or local override
+// Read from env, local override, or connected project defaults
 export function getStoredSupabaseConfig(): { url: string; anonKey: string } {
   const envUrl = normalizeSupabaseUrl((import.meta.env.VITE_SUPABASE_URL as string) || '');
-  const envAnon =
+  const envAnon = normalizeSupabaseKey(
     (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string) ||
-    (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ||
-    '';
+      (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ||
+      ''
+  );
 
   const storedUrl =
     typeof window !== 'undefined' ? normalizeSupabaseUrl(localStorage.getItem(STORAGE_KEY_URL) || '') : '';
-  const storedAnon = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY_ANON) || '' : '';
+  const storedAnon =
+    typeof window !== 'undefined' ? normalizeSupabaseKey(localStorage.getItem(STORAGE_KEY_ANON) || '') : '';
+
+  const resolvedUrl = storedUrl || (envUrl && !envUrl.includes('your-project-ref') ? envUrl : '') || DEFAULT_SUPABASE_URL;
+  const resolvedKey =
+    storedAnon ||
+    (envAnon && !envAnon.includes('your-anon') && !envAnon.includes('your-publishable') ? envAnon : '') ||
+    DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
   return {
-    url: storedUrl || envUrl,
-    anonKey: storedAnon || envAnon,
+    url: resolvedUrl,
+    anonKey: resolvedKey,
   };
 }
 
@@ -58,7 +86,8 @@ export function saveStoredSupabaseConfig(url: string, anonKey: string) {
     if (normalized) localStorage.setItem(STORAGE_KEY_URL, normalized);
     else localStorage.removeItem(STORAGE_KEY_URL);
 
-    if (anonKey) localStorage.setItem(STORAGE_KEY_ANON, anonKey.trim());
+    const normalizedKey = normalizeSupabaseKey(anonKey);
+    if (normalizedKey) localStorage.setItem(STORAGE_KEY_ANON, normalizedKey);
     else localStorage.removeItem(STORAGE_KEY_ANON);
 
     // Re-initialize client
@@ -105,7 +134,7 @@ export function getSupabase(): SupabaseClient | null {
 // Test connection
 export async function testSupabaseConnection(url?: string, key?: string): Promise<{ success: boolean; message: string }> {
   const testUrl = normalizeSupabaseUrl(url || getStoredSupabaseConfig().url);
-  const testKey = (key || getStoredSupabaseConfig().anonKey).trim();
+  const testKey = normalizeSupabaseKey(key || getStoredSupabaseConfig().anonKey);
 
   if (!testUrl || !testKey || testUrl.includes('your-project-ref')) {
     return {

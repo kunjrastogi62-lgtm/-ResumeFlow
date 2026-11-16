@@ -237,7 +237,7 @@ export const ResumeBuilderView: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#090b10] text-[#e2e8f0] overflow-hidden">
+    <div className="print-shell flex flex-col h-screen bg-[#090b10] text-[#e2e8f0] overflow-hidden">
       {/* Header Toolbar */}
       <header className="no-print h-14 bg-[#101219] border-b border-[#1f2433] px-3 sm:px-4 flex items-center justify-between z-30 shrink-0 gap-2">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
@@ -388,7 +388,7 @@ export const ResumeBuilderView: React.FC = () => {
       )}
 
       {/* Workspace Split Panes */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="print-canvas flex-1 flex overflow-hidden">
         {/* Editor Form */}
         <section
           className={`no-print w-full md:w-[460px] lg:w-[520px] shrink-0 border-r border-[#1f2433] flex-col bg-[#101219] overflow-hidden ${
@@ -410,7 +410,7 @@ export const ResumeBuilderView: React.FC = () => {
 
         {/* Live Canvas */}
         <section
-          className={`flex-1 flex-col bg-[#06070b] overflow-hidden relative ${
+          className={`print-canvas flex-1 flex-col bg-[#06070b] overflow-hidden relative ${
             mobilePane === 'preview' ? 'flex' : 'hidden md:flex'
           }`}
         >
@@ -454,8 +454,8 @@ export const ResumeBuilderView: React.FC = () => {
             </label>
           </div>
 
-          <div className="flex-1 overflow-auto p-4 sm:p-8 flex items-start justify-center">
-            <div className="py-2">
+          <div className="print-canvas flex-1 overflow-auto p-4 sm:p-8 flex items-start justify-center">
+            <div className="py-2 print:py-0">
               <ResumeRenderer data={resumeData} template={template} zoom={zoom} />
             </div>
           </div>
@@ -484,18 +484,41 @@ export const ResumeBuilderView: React.FC = () => {
         isOpen={tailorModalOpen}
         onClose={() => setTailorModalOpen(false)}
         resumeData={resumeData}
-        onApplyBullet={(secIdx, itemIdx, suggested) => {
-          setResumeData((prev) => ({
-            ...prev,
-            work: prev.work.map((w, idx) =>
-              idx === secIdx
-                ? {
-                    ...w,
-                    highlights: w.highlights.map((h, hIdx) => (hIdx === itemIdx ? suggested : h)),
+        onApplyBullet={(secIdx, itemIdx, suggested, originalBullet) => {
+          setResumeData((prev) => {
+            // Try exact text match first if originalBullet was supplied
+            if (originalBullet) {
+              const normOriginal = originalBullet.trim().toLowerCase();
+              let matched = false;
+              const matchedWork = prev.work.map((w) => ({
+                ...w,
+                highlights: w.highlights.map((h) => {
+                  if (!matched && h.trim().toLowerCase() === normOriginal) {
+                    matched = true;
+                    return suggested;
                   }
-                : w
-            ),
-          }));
+                  return h;
+                }),
+              }));
+              if (matched) {
+                return { ...prev, work: matchedWork };
+              }
+            }
+
+            // Fallback to valid index bounds
+            const targetWorkIdx = prev.work[secIdx] ? secIdx : 0;
+            return {
+              ...prev,
+              work: prev.work.map((w, idx) => {
+                if (idx !== targetWorkIdx) return w;
+                const targetBulletIdx = w.highlights[itemIdx] !== undefined ? itemIdx : 0;
+                return {
+                  ...w,
+                  highlights: w.highlights.map((h, hIdx) => (hIdx === targetBulletIdx ? suggested : h)),
+                };
+              }),
+            };
+          });
           setHasUnsavedChanges(true);
         }}
       />

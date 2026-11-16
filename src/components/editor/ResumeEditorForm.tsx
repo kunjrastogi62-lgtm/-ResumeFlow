@@ -44,6 +44,7 @@ export const ResumeEditorForm: React.FC<ResumeEditorFormProps> = ({
     'basics' | 'experience' | 'skills' | 'education' | 'projects' | 'certifications' | 'design'
   >('basics');
   const [suggestingSkills, setSuggestingSkills] = useState(false);
+  const [skillError, setSkillError] = useState<string | null>(null);
 
   // Helper updates
   const updateBasics = (field: keyof typeof data.basics, value: string) => {
@@ -157,6 +158,7 @@ export const ResumeEditorForm: React.FC<ResumeEditorFormProps> = ({
 
   const handleSuggestSkills = async () => {
     setSuggestingSkills(true);
+    setSkillError(null);
     try {
       const currentFlat = data.skills.flatMap((s) => s.items);
       const suggestions = await suggestSkillsForRole({
@@ -179,8 +181,8 @@ export const ResumeEditorForm: React.FC<ResumeEditorFormProps> = ({
         },
       ];
       onChange({ ...data, skills: newGroups });
-    } catch (e) {
-      console.warn('Could not auto-suggest skills:', e);
+    } catch (e: any) {
+      setSkillError(e?.message || 'Could not auto-suggest skills. Please try again.');
     } finally {
       setSuggestingSkills(false);
     }
@@ -242,10 +244,17 @@ export const ResumeEditorForm: React.FC<ResumeEditorFormProps> = ({
       id: `c-${Date.now()}`,
       name: 'Certification Title',
       issuer: 'Issuing Organization',
-      date: '2023-01',
+      date: '2024-01',
       url: '',
     };
     onChange({ ...data, certifications: [...data.certifications, newCert] });
+  };
+
+  const updateCertification = (id: string, updates: Partial<Certification>) => {
+    onChange({
+      ...data,
+      certifications: data.certifications.map((c) => (c.id === id ? { ...c, ...updates } : c)),
+    });
   };
 
   const removeCertification = (id: string) => {
@@ -640,6 +649,12 @@ export const ResumeEditorForm: React.FC<ResumeEditorFormProps> = ({
               </div>
             </div>
 
+            {skillError && (
+              <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+                {skillError}
+              </div>
+            )}
+
             <div className="space-y-3">
               {data.skills.map((grp) => (
                 <div key={grp.id} className="p-3.5 bg-[#0a0c12] border border-[#232736] rounded-xl space-y-2">
@@ -740,18 +755,32 @@ export const ResumeEditorForm: React.FC<ResumeEditorFormProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-neutral-400">Graduation Year / Range</label>
+                      <label className="text-[10px] text-neutral-400">GPA / Honors (Optional)</label>
                       <input
                         type="text"
-                        value={`${edu.startDate} - ${edu.endDate}`}
-                        onChange={(e) => {
-                          const parts = e.target.value.split('-');
-                          updateEducation(edu.id, {
-                            startDate: parts[0]?.trim() || '',
-                            endDate: parts[1]?.trim() || '',
-                          });
-                        }}
-                        placeholder="2016 - 2020"
+                        value={edu.score || ''}
+                        onChange={(e) => updateEducation(edu.id, { score: e.target.value })}
+                        placeholder="3.85 GPA — Magna Cum Laude"
+                        className="w-full px-2.5 py-1.5 text-xs bg-[#11131a] border border-[#232736] rounded text-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-neutral-400">Start Date</label>
+                      <input
+                        type="text"
+                        value={edu.startDate}
+                        onChange={(e) => updateEducation(edu.id, { startDate: e.target.value })}
+                        placeholder="2016-09"
+                        className="w-full px-2.5 py-1.5 text-xs bg-[#11131a] border border-[#232736] rounded text-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-neutral-400">End / Graduation Date</label>
+                      <input
+                        type="text"
+                        value={edu.endDate}
+                        onChange={(e) => updateEducation(edu.id, { endDate: e.target.value })}
+                        placeholder="2020-05"
                         className="w-full px-2.5 py-1.5 text-xs bg-[#11131a] border border-[#232736] rounded text-white focus:outline-none focus:border-indigo-500"
                       />
                     </div>
@@ -847,20 +876,52 @@ export const ResumeEditorForm: React.FC<ResumeEditorFormProps> = ({
               </button>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {data.certifications.map((c) => (
-                <div key={c.id} className="p-3 bg-[#0a0c12] border border-[#232736] rounded-xl flex items-center justify-between gap-3">
-                  <div className="flex-1 space-y-1">
-                    <div className="text-xs font-semibold text-white">{c.name}</div>
-                    <div className="text-[11px] text-neutral-400">{c.issuer} • {c.date}</div>
+                <div key={c.id} className="p-3.5 bg-[#0a0c12] border border-[#232736] rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-semibold text-indigo-400">Credential</span>
+                    <button
+                      type="button"
+                      onClick={() => removeCertification(c.id)}
+                      className="text-neutral-500 hover:text-rose-400 p-1"
+                      title="Delete Certification"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeCertification(c.id)}
-                    className="text-neutral-500 hover:text-rose-400 p-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] text-neutral-400 mb-1">Certification Name</label>
+                      <input
+                        type="text"
+                        value={c.name}
+                        onChange={(e) => updateCertification(c.id, { name: e.target.value })}
+                        placeholder="AWS Certified Solutions Architect"
+                        className="w-full px-2.5 py-1.5 text-xs bg-[#11131a] border border-[#232736] rounded text-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-neutral-400 mb-1">Issuing Organization</label>
+                      <input
+                        type="text"
+                        value={c.issuer}
+                        onChange={(e) => updateCertification(c.id, { issuer: e.target.value })}
+                        placeholder="Amazon Web Services"
+                        className="w-full px-2.5 py-1.5 text-xs bg-[#11131a] border border-[#232736] rounded text-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-neutral-400 mb-1">Date Issued</label>
+                      <input
+                        type="text"
+                        value={c.date}
+                        onChange={(e) => updateCertification(c.id, { date: e.target.value })}
+                        placeholder="2024-03"
+                        className="w-full px-2.5 py-1.5 text-xs bg-[#11131a] border border-[#232736] rounded text-white focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

@@ -61,6 +61,13 @@ export const Dashboard: React.FC = () => {
     loadResumes();
   }, [user?.id]);
 
+  useEffect(() => {
+    if (!activeMenuId) return;
+    const closeMenu = () => setActiveMenuId(null);
+    window.addEventListener('click', closeMenu);
+    return () => window.removeEventListener('click', closeMenu);
+  }, [activeMenuId]);
+
   const handleCreate = async () => {
     if (!user) return;
     setCreating(true);
@@ -311,8 +318,9 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="relative">
+                    <div className="relative" onClick={(e) => e.stopPropagation()}>
                       <button
+                        type="button"
                         onClick={() => setActiveMenuId(activeMenuId === resume.id ? null : resume.id)}
                         className="p-1 text-neutral-400 hover:text-white rounded hover:bg-[#1a1e2e] transition"
                       >

@@ -27,10 +27,6 @@ interface AuthContextType {
   updatePassword: (newPassword: string) => Promise<{ error: AuthError | Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  authModalOpen: boolean;
-  setAuthModalOpen: (open: boolean) => void;
-  authModalTab: 'login' | 'signup' | 'reset';
-  setAuthModalTab: (tab: 'login' | 'signup' | 'reset') => void;
   configModalOpen: boolean;
   setConfigModalOpen: (open: boolean) => void;
   recheckConfig: () => void;
@@ -67,8 +63,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isConfigured, setIsConfigured] = useState<boolean>(isSupabaseConfigured());
   const [isRecoverySession, setIsRecoverySession] = useState<boolean>(false);
 
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authModalTab, setAuthModalTab] = useState<'login' | 'signup' | 'reset'>('login');
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
   const recheckConfig = () => {
@@ -251,10 +245,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updatePassword,
         signOut,
         refreshProfile,
-        authModalOpen,
-        setAuthModalOpen,
-        authModalTab,
-        setAuthModalTab,
         configModalOpen,
         setConfigModalOpen,
         recheckConfig,

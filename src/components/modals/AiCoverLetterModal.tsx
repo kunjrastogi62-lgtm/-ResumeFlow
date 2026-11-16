@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Mail, Sparkles, Loader2, Copy, Check, Download } from 'lucide-react';
 import { generateCoverLetter } from '../../lib/ai-service';
 import { ResumeData } from '../../types/resume';
@@ -24,6 +24,13 @@ export const AiCoverLetterModal: React.FC<AiCoverLetterModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setRoleTitle((prev) => prev || resumeData.basics.label || '');
+      setError(null);
+    }
+  }, [isOpen, resumeData.basics.label]);
 
   if (!isOpen) return null;
 
@@ -93,7 +100,7 @@ export const AiCoverLetterModal: React.FC<AiCoverLetterModalProps> = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-medium text-neutral-400 mb-1">
                 Company Name <span className="text-rose-400">*</span>
@@ -117,6 +124,19 @@ export const AiCoverLetterModal: React.FC<AiCoverLetterModalProps> = ({
                 placeholder="e.g. Staff Software Engineer"
                 className="w-full px-3 py-2 text-xs bg-[#0a0c12] border border-[#232736] rounded-lg text-white focus:outline-none focus:border-indigo-500"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-neutral-400 mb-1">Writing Tone</label>
+              <select
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-[#0a0c12] border border-[#232736] rounded-lg text-white focus:outline-none focus:border-indigo-500"
+              >
+                <option value="Confident, high-impact, and strategic">Strategic & Impactful</option>
+                <option value="Concise, direct, and technical">Concise & Technical</option>
+                <option value="Executive, visionary, and leadership-focused">Executive Leadership</option>
+                <option value="Warm, collaborative, and mission-driven">Warm & Mission-Driven</option>
+              </select>
             </div>
           </div>
 
@@ -181,7 +201,7 @@ export const AiCoverLetterModal: React.FC<AiCoverLetterModalProps> = ({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-[#232736] bg-[#161922]">
-          <span className="text-[11px] text-neutral-500">Gemini 3.8 Flash</span>
+          <span className="text-[11px] text-neutral-500">Powered by Google Gemini AI</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white transition"

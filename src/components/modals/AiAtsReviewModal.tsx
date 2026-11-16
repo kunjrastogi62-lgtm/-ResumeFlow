@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, ShieldCheck, CheckCircle2, AlertTriangle, Sparkles, Loader2, BarChart2 } from 'lucide-react';
 import { reviewResumeATS, ATSReviewResult } from '../../lib/ai-service';
 import { ResumeData } from '../../types/resume';
@@ -20,6 +20,12 @@ export const AiAtsReviewModal: React.FC<AiAtsReviewModalProps> = ({
   const [industry, setIndustry] = useState('Technology & Software');
   const [result, setResult] = useState<ATSReviewResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setError(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -111,7 +117,7 @@ export const AiAtsReviewModal: React.FC<AiAtsReviewModalProps> = ({
               </div>
               <p className="text-sm font-medium text-neutral-300">Ready to simulate an enterprise ATS parser</p>
               <p className="text-xs text-neutral-500 max-w-md mx-auto">
-                Gemini 3.8 evaluates your bullet action verbs, quantifiable metrics, section hierarchy, and keyword density.
+                Google Gemini evaluates your bullet action verbs, quantifiable metrics, section hierarchy, and keyword density.
               </p>
             </div>
           )}
