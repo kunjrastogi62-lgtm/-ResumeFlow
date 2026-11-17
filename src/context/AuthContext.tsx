@@ -37,19 +37,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function formatAuthError(err: any): string {
   if (!err) return 'An unexpected authentication error occurred.';
   const msg = String(err.message || err);
-  if (msg.toLowerCase().includes('invalid login credentials')) {
+  const lower = msg.toLowerCase();
+  if (lower.includes('invalid login credentials')) {
     return 'Incorrect email or password. Please double-check your credentials and try again.';
   }
-  if (msg.toLowerCase().includes('email not confirmed')) {
+  if (lower.includes('email not confirmed')) {
     return 'Your email address has not been verified yet. Please check your inbox or resend the verification email.';
   }
-  if (msg.toLowerCase().includes('user already registered')) {
+  if (lower.includes('user already registered')) {
     return 'An account with this email already exists. Try signing in instead.';
   }
-  if (msg.toLowerCase().includes('provider is not enabled') || msg.toLowerCase().includes('unsupported provider')) {
+  if (lower.includes('provider is not enabled') || lower.includes('unsupported provider')) {
     return 'Google OAuth is not enabled yet in your Supabase Authentication Providers settings.';
   }
-  if (msg.toLowerCase().includes('rate limit')) {
+  if (lower.includes('error sending confirmation email') || lower.includes('error sending') || lower.includes('smtp')) {
+    return 'Supabase could not send the confirmation email. In Supabase Auth > SMTP Settings, do not use a @vercel.app sender address (vercel.app domains cannot be verified for SMTP). Either turn off Custom SMTP, use a verified sender/Gmail App Password, or temporarily disable "Confirm email" in Supabase Auth > Providers > Email.';
+  }
+  if (lower.includes('rate limit')) {
     return 'Too many requests in a short time. Please wait a moment before trying again.';
   }
   return msg;
