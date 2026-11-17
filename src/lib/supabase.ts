@@ -121,7 +121,7 @@ export function getSupabase(): SupabaseClient | null {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        flowType: 'pkce',
+        flowType: 'implicit',
       },
     });
     return supabaseClientInstance;

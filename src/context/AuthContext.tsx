@@ -53,6 +53,9 @@ export function formatAuthError(err: any): string {
   if (lower.includes('error sending confirmation email') || lower.includes('error sending') || lower.includes('smtp')) {
     return 'Supabase could not send the confirmation email. In Supabase Auth > SMTP Settings, do not use a @vercel.app sender address (vercel.app domains cannot be verified for SMTP). Either turn off Custom SMTP, use a verified sender/Gmail App Password, or temporarily disable "Confirm email" in Supabase Auth > Providers > Email.';
   }
+  if (lower.includes('code verifier') || lower.includes('pkce')) {
+    return 'This verification link was opened in a different browser or tab than where you started. Your email may already be confirmed — please try signing in with your email and password.';
+  }
   if (lower.includes('rate limit')) {
     return 'Too many requests in a short time. Please wait a moment before trying again.';
   }

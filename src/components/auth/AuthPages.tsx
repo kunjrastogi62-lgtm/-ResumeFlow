@@ -579,6 +579,8 @@ export const ForgotPasswordPage: React.FC = () => {
   );
 };
 
+const processedAuthCodes = new Set<string>();
+
 export const ResetPasswordPage: React.FC = () => {
   const { updatePassword, session, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
@@ -592,17 +594,45 @@ export const ResetPasswordPage: React.FC = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const code = searchParams.get('code');
-    const supabase = getSupabase();
-    if (code && supabase) {
+    let active = true;
+    const verifyRecovery = async () => {
+      const supabase = getSupabase();
+      if (!supabase) return;
+
+      const code = searchParams.get('code');
+      const tokenHash = searchParams.get('token_hash');
+
       setExchanging(true);
-      supabase.auth
-        .exchangeCodeForSession(code)
-        .then(({ error }) => {
-          if (error) setError(formatAuthError(error));
-        })
-        .finally(() => setExchanging(false));
-    }
+      try {
+        // Wait for detectSessionInUrl (implicit hash or auto PKCE) to settle first
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData.session) return;
+
+        if (tokenHash) {
+          const { error: otpErr } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: 'recovery',
+          });
+          if (otpErr && active) setError(formatAuthError(otpErr));
+        } else if (code && !processedAuthCodes.has(code)) {
+          processedAuthCodes.add(code);
+          const { error: exErr } = await supabase.auth.exchangeCodeForSession(code);
+          if (exErr && active) {
+            const { data: retryData } = await supabase.auth.getSession();
+            if (!retryData.session) {
+              setError(formatAuthError(exErr));
+            }
+          }
+        }
+      } finally {
+        if (active) setExchanging(false);
+      }
+    };
+
+    verifyRecovery();
+    return () => {
+      active = false;
+    };
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -734,22 +764,51 @@ export const AuthCallbackPage: React.FC = () => {
         return;
       }
 
-      const errorDesc = searchParams.get('error_description') || searchParams.get('error');
+      const hashParams = new URLSearchParams(
+        typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : ''
+      );
+      const errorDesc =
+        searchParams.get('error_description') ||
+        searchParams.get('error') ||
+        hashParams.get('error_description') ||
+        hashParams.get('error');
+
       if (errorDesc) {
         if (mounted) setError(decodeURIComponent(errorDesc));
         return;
       }
 
-      const type = searchParams.get('type');
+      const type = searchParams.get('type') || hashParams.get('type');
       const code = searchParams.get('code');
+      const tokenHash = searchParams.get('token_hash');
 
       try {
-        if (code) {
+        // Let Supabase's detectSessionInUrl finish first so we never double-consume a PKCE code
+        let { data: { session } } = await supabase.auth.getSession();
+
+        if (!session && tokenHash && type) {
+          const { error: otpError } = await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type as any,
+          });
+          if (otpError) throw otpError;
+          ({ data: { session } } = await supabase.auth.getSession());
+        } else if (!session && code && !processedAuthCodes.has(code)) {
+          processedAuthCodes.add(code);
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) throw exchangeError;
+          if (exchangeError) {
+            // Re-check session in case concurrent detectSessionInUrl succeeded
+            const retry = await supabase.auth.getSession();
+            if (retry.data.session) {
+              session = retry.data.session;
+            } else {
+              throw exchangeError;
+            }
+          } else {
+            ({ data: { session } } = await supabase.auth.getSession());
+          }
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
         if (!mounted) return;
 
         if (type === 'recovery') {
@@ -757,7 +816,7 @@ export const AuthCallbackPage: React.FC = () => {
         } else if (session) {
           navigate('/dashboard', { replace: true });
         } else {
-          // Wait briefly for hash fragment detection
+          // Wait briefly for implicit hash / auth listener to finish
           setTimeout(async () => {
             const { data } = await supabase.auth.getSession();
             if (!mounted) return;
@@ -788,7 +847,7 @@ export const AuthCallbackPage: React.FC = () => {
         <div className="space-y-4">
           <div className="p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />
-            <span>{error}</span>
+            <span className="leading-relaxed">{error}</span>
           </div>
           <Link
             to="/login"
