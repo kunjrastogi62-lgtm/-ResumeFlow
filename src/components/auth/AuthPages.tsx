@@ -88,15 +88,19 @@ export const LoginPage: React.FC = () => {
   const { signInWithEmail, signInWithGoogle, resendVerificationEmail } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from || '/dashboard';
+  const navState = (location.state as any) || {};
+  const from = navState.from || '/dashboard';
 
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(
+    navState.email ||
+      (typeof window !== 'undefined' ? localStorage.getItem('resumeflow_pending_email') || '' : '')
+  );
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(navState.notice || null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -751,40 +755,68 @@ export const ResetPasswordPage: React.FC = () => {
 };
 
 export const AuthCallbackPage: React.FC = () => {
+  const { resendVerificationEmail } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  const [status, setStatus] = useState<'loading' | 'success' | 'expired' | 'error'>('loading');
+  const [confirmedEmail, setConfirmedEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resendEmail, setResendEmail] = useState<string>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('resumeflow_pending_email') || '' : ''
+  );
+  const [resending, setResending] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
+    let redirectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const completeWithSession = (sessionEmail?: string | null) => {
+      if (!mounted) return;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('resumeflow_pending_email');
+      }
+      setConfirmedEmail(sessionEmail || null);
+      setStatus('success');
+      redirectTimer = setTimeout(() => {
+        if (mounted) {
+          navigate('/dashboard', { replace: true });
+        }
+      }, 1500);
+    };
+
     const handleCallback = async () => {
       const supabase = getSupabase();
       if (!supabase) {
-        if (mounted) setError('Supabase is not configured.');
+        if (mounted) {
+          setError('Supabase is not configured.');
+          setStatus('error');
+        }
         return;
       }
 
       const hashParams = new URLSearchParams(
         typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : ''
       );
+      const errorCode =
+        searchParams.get('error_code') || hashParams.get('error_code') || '';
       const errorDesc =
         searchParams.get('error_description') ||
         searchParams.get('error') ||
         hashParams.get('error_description') ||
         hashParams.get('error');
 
-      if (errorDesc) {
-        if (mounted) setError(decodeURIComponent(errorDesc));
-        return;
-      }
-
       const type = searchParams.get('type') || hashParams.get('type');
       const code = searchParams.get('code');
       const tokenHash = searchParams.get('token_hash');
 
       try {
-        // Let Supabase's detectSessionInUrl finish first so we never double-consume a PKCE code
-        let { data: { session } } = await supabase.auth.getSession();
+        // 1. Always check existing/auto-detected session FIRST before checking URL error flags
+        let {
+          data: { session },
+        } = await supabase.auth.getSession();
 
         if (!session && tokenHash && type) {
           const { error: otpError } = await supabase.auth.verifyOtp({
@@ -792,12 +824,13 @@ export const AuthCallbackPage: React.FC = () => {
             type: type as any,
           });
           if (otpError) throw otpError;
-          ({ data: { session } } = await supabase.auth.getSession());
+          ({
+            data: { session },
+          } = await supabase.auth.getSession());
         } else if (!session && code && !processedAuthCodes.has(code)) {
           processedAuthCodes.add(code);
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) {
-            // Re-check session in case concurrent detectSessionInUrl succeeded
             const retry = await supabase.auth.getSession();
             if (retry.data.session) {
               session = retry.data.session;
@@ -805,45 +838,195 @@ export const AuthCallbackPage: React.FC = () => {
               throw exchangeError;
             }
           } else {
-            ({ data: { session } } = await supabase.auth.getSession());
+            ({
+              data: { session },
+            } = await supabase.auth.getSession());
           }
         }
 
         if (!mounted) return;
 
-        if (type === 'recovery') {
+        if (type === 'recovery' && session) {
           navigate('/reset-password', { replace: true });
-        } else if (session) {
-          navigate('/dashboard', { replace: true });
-        } else {
-          // Wait briefly for implicit hash / auth listener to finish
-          setTimeout(async () => {
-            const { data } = await supabase.auth.getSession();
-            if (!mounted) return;
-            if (data.session) {
-              navigate('/dashboard', { replace: true });
-            } else {
-              navigate('/login', { replace: true });
-            }
-          }, 800);
+          return;
         }
+
+        if (session) {
+          completeWithSession(session.user?.email);
+          return;
+        }
+
+        // 2. If there is no session and Supabase reported otp_expired / invalid link
+        if (errorDesc) {
+          const decoded = decodeURIComponent(errorDesc.replace(/\+/g, ' '));
+          const lower = decoded.toLowerCase();
+          if (
+            errorCode === 'otp_expired' ||
+            lower.includes('expired') ||
+            lower.includes('invalid') ||
+            lower.includes('access_denied')
+          ) {
+            setStatus('expired');
+            return;
+          }
+          setError(formatAuthError(decoded));
+          setStatus('error');
+          return;
+        }
+
+        // 3. Wait briefly in case detectSessionInUrl hash parsing finishes slightly after mount
+        setTimeout(async () => {
+          const { data } = await supabase.auth.getSession();
+          if (!mounted) return;
+          if (data.session) {
+            completeWithSession(data.session.user?.email);
+          } else {
+            setStatus('expired');
+          }
+        }, 900);
       } catch (err: any) {
-        if (mounted) setError(formatAuthError(err));
+        if (!mounted) return;
+        const msg = String(err?.message || err || '').toLowerCase();
+        if (msg.includes('expired') || msg.includes('invalid') || msg.includes('otp')) {
+          setStatus('expired');
+        } else {
+          setError(formatAuthError(err));
+          setStatus('error');
+        }
       }
     };
 
     handleCallback();
     return () => {
       mounted = false;
+      if (redirectTimer) clearTimeout(redirectTimer);
     };
   }, [searchParams, navigate]);
+
+  const handleResendLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resendEmail.trim()) return;
+    setResending(true);
+    setResendMessage(null);
+    setResendError(null);
+    const { error: resendErr } = await resendVerificationEmail(resendEmail.trim());
+    setResending(false);
+    if (resendErr) {
+      setResendError(formatAuthError(resendErr));
+    } else {
+      setResendMessage(
+        `A fresh verification link was sent to ${resendEmail.trim()}. Please check your inbox and click the newest email once.`
+      );
+    }
+  };
+
+  if (status === 'success') {
+    return (
+      <AuthShell
+        title="Thanks for signing in to ResumeFlow!"
+        subtitle="Your account is verified and your workspace session is ready."
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 text-xs space-y-1.5">
+            <div className="flex items-center gap-2 font-semibold text-emerald-300">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+              <span>Email verified & signed in</span>
+            </div>
+            <p className="text-neutral-300 leading-relaxed">
+              {confirmedEmail ? (
+                <>
+                  Signed in as <span className="font-semibold text-white">{confirmedEmail}</span>. Taking you to your dashboard...
+                </>
+              ) : (
+                'Taking you to your dashboard now...'
+              )}
+            </p>
+          </div>
+          <Link
+            to="/dashboard"
+            className="w-full py-2.5 px-4 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-2 transition"
+          >
+            <span>Continue to Dashboard</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (status === 'expired') {
+    return (
+      <AuthShell
+        title="Thanks for confirming with ResumeFlow"
+        subtitle="Your verification link has already been used or has expired."
+      >
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-neutral-200 text-xs space-y-2">
+            <div className="flex items-center gap-2 font-semibold text-indigo-300">
+              <ShieldCheck className="w-4 h-4 shrink-0 text-indigo-400" />
+              <span>Your email may already be confirmed</span>
+            </div>
+            <p className="text-neutral-300 leading-relaxed">
+              Confirmation links only work once—email security scanners or a previous click often verify your account automatically. Try signing in below, or request a fresh link.
+            </p>
+          </div>
+
+          <Link
+            to="/login"
+            state={{
+              email: resendEmail,
+              notice: 'If you already clicked your confirmation email, sign in with your password below.',
+            }}
+            className="w-full py-2.5 px-4 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center gap-2 transition"
+          >
+            <span>Sign In to ResumeFlow</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+
+          <form onSubmit={handleResendLink} className="pt-2 border-t border-[#1f2433] space-y-2.5">
+            <label className="block text-[11px] font-medium text-neutral-400">
+              Need a new verification link?
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                required
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="flex-1 px-3 py-2 text-xs bg-[#090b10] border border-[#232736] rounded-lg text-white placeholder-neutral-600 focus:outline-none focus:border-indigo-500 transition"
+              />
+              <button
+                type="submit"
+                disabled={resending}
+                className="px-3.5 py-2 text-xs font-medium rounded-lg bg-[#161925] hover:bg-[#1e2334] text-neutral-200 border border-[#252b3d] disabled:opacity-50 flex items-center gap-1.5 transition shrink-0"
+              >
+                {resending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                <span>Resend</span>
+              </button>
+            </div>
+            {resendMessage && (
+              <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px]">
+                {resendMessage}
+              </div>
+            )}
+            {resendError && (
+              <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px]">
+                {resendError}
+              </div>
+            )}
+          </form>
+        </div>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell
       title="Completing sign in"
       subtitle="Connecting your authenticated Supabase session."
     >
-      {error ? (
+      {status === 'error' && error ? (
         <div className="space-y-4">
           <div className="p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-400 mt-0.5" />

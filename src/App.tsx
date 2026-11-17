@@ -77,8 +77,29 @@ function AppRoutes() {
   useEffect(() => {
     if (isRecoverySession && location.pathname !== '/reset-password') {
       navigate('/reset-password', { replace: true });
+      return;
     }
-  }, [isRecoverySession, location.pathname, navigate]);
+
+    if (location.pathname === '/') {
+      const s = location.search || '';
+      const h = location.hash || '';
+      const hasAuthParams =
+        s.includes('code=') ||
+        s.includes('token_hash=') ||
+        s.includes('error_code=') ||
+        s.includes('error_description=') ||
+        h.includes('access_token=') ||
+        h.includes('error_code=') ||
+        h.includes('error_description=') ||
+        h.includes('type=signup') ||
+        h.includes('type=recovery');
+
+      if (hasAuthParams) {
+        const target = h.includes('type=recovery') ? '/reset-password' : '/auth/callback';
+        navigate(`${target}${s}${h}`, { replace: true });
+      }
+    }
+  }, [isRecoverySession, location.pathname, location.search, location.hash, navigate]);
 
   return (
     <div className="min-h-screen bg-[#090b10] text-[#e2e8f0]">

@@ -145,8 +145,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return { error: new Error('Supabase is not configured. Please verify your project credentials.') };
     }
 
+    const cleanEmail = email.trim();
+    if (typeof window !== 'undefined' && cleanEmail) {
+      localStorage.setItem('resumeflow_pending_email', cleanEmail);
+    }
+
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: cleanEmail,
       password,
       options: {
         emailRedirectTo: getAuthRedirectUrl('/auth/callback'),
@@ -166,9 +171,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!supabase) {
       return { error: new Error('Supabase is not configured.') };
     }
+    const cleanEmail = email.trim();
+    if (typeof window !== 'undefined' && cleanEmail) {
+      localStorage.setItem('resumeflow_pending_email', cleanEmail);
+    }
     const { error } = await supabase.auth.resend({
       type: 'signup',
-      email: email.trim(),
+      email: cleanEmail,
       options: {
         emailRedirectTo: getAuthRedirectUrl('/auth/callback'),
       },
