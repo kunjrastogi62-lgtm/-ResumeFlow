@@ -16,6 +16,7 @@ import {
   Copy,
   Check,
   Clock,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth, formatAuthError } from '../../context/AuthContext';
 import {
@@ -29,7 +30,7 @@ import {
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
 
 export const SettingsPage: React.FC = () => {
-  const { user, profile, refreshProfile, updatePassword, signOut, setConfigModalOpen, isConfigured } = useAuth();
+  const { user, profile, isAdmin, refreshProfile, updatePassword, signOut, setConfigModalOpen, isConfigured } = useAuth();
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState(profile?.full_name || (user?.user_metadata?.full_name as string) || '');
@@ -165,6 +166,15 @@ export const SettingsPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2.5">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="px-3 py-1.5 text-xs font-medium text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg flex items-center gap-1.5 transition"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Admin</span>
+              </Link>
+            )}
             <Link
               to="/dashboard"
               className="px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white bg-[#141724] border border-[#232736] rounded-lg flex items-center gap-1.5 transition"

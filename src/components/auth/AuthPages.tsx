@@ -13,7 +13,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useAuth, formatAuthError } from '../../context/AuthContext';
-import { getSupabase } from '../../lib/supabase';
+import { getSupabase, fetchSiteSettings } from '../../lib/supabase';
+import { WelcomePopup } from '../../lib/welcome-popup';
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
 
 const AuthShell: React.FC<{
@@ -85,7 +86,14 @@ const GoogleButton: React.FC<{ onClick: () => void; loading: boolean; label: str
 );
 
 export const LoginPage: React.FC = () => {
-  const { signInWithEmail, signInWithGoogle, resendVerificationEmail } = useAuth();
+  const {
+    signInWithEmail,
+    signInWithGoogle,
+    resendVerificationEmail,
+    hasUserSeenWelcome,
+    markWelcomeSeen,
+    setWelcomeBlocking,
+  } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const navState = (location.state as any) || {};
@@ -108,9 +116,10 @@ export const LoginPage: React.FC = () => {
     setNotice(null);
     setNeedsVerification(false);
     setLoading(true);
+    setWelcomeBlocking(true);
 
     try {
-      const { error } = await signInWithEmail(email, password);
+      const { error, user: signedInUser } = await signInWithEmail(email, password);
       if (error) {
         const msg = formatAuthError(error);
         if (String(error.message || '').toLowerCase().includes('email not confirmed')) {
@@ -118,8 +127,18 @@ export const LoginPage: React.FC = () => {
         }
         throw new Error(msg);
       }
-      navigate(from, { replace: true });
+
+      const uid = signedInUser?.id || email.trim();
+      WelcomePopup.show(uid, {
+        hasSeenWelcome: hasUserSeenWelcome(signedInUser),
+        markSeen: () => markWelcomeSeen(signedInUser?.id),
+        onClose: () => {
+          setWelcomeBlocking(false);
+          navigate(from, { replace: true });
+        },
+      });
     } catch (err: any) {
+      setWelcomeBlocking(false);
       setError(err.message || 'Failed to sign in.');
     } finally {
       setLoading(false);
@@ -252,7 +271,13 @@ export const LoginPage: React.FC = () => {
 };
 
 export const SignupPage: React.FC = () => {
-  const { signUpWithEmail, signInWithGoogle, resendVerificationEmail } = useAuth();
+  const {
+    signUpWithEmail,
+    signInWithGoogle,
+    resendVerificationEmail,
+    markWelcomeSeen,
+    setWelcomeBlocking,
+  } = useAuth();
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState('');
@@ -264,6 +289,11 @@ export const SignupPage: React.FC = () => {
   const [verificationSent, setVerificationSent] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
+  const [signupsAllowed, setSignupsAllowed] = useState(true);
+
+  useEffect(() => {
+    fetchSiteSettings().then((cfg) => setSignupsAllowed(cfg.allowSignups));
+  }, []);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -274,6 +304,11 @@ export const SignupPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!signupsAllowed) {
+      setError('New account registrations are temporarily paused by the administrator.');
+      return;
+    }
 
     if (!fullName.trim()) {
       setError('Please enter your full name.');
@@ -289,17 +324,29 @@ export const SignupPage: React.FC = () => {
     }
 
     setLoading(true);
+    setWelcomeBlocking(true);
     try {
-      const { error, needsEmailConfirmation } = await signUpWithEmail(email, password, fullName);
+      const { error, needsEmailConfirmation, user: newUser } = await signUpWithEmail(email, password, fullName);
       if (error) throw new Error(formatAuthError(error));
 
       if (needsEmailConfirmation) {
+        setWelcomeBlocking(false);
         setVerificationSent(true);
         setResendCooldown(30);
       } else {
-        navigate('/dashboard', { replace: true });
+        const uid = newUser?.id || email.trim();
+        WelcomePopup.show(uid, {
+          isNewUser: true,
+          hasSeenWelcome: false,
+          markSeen: () => markWelcomeSeen(newUser?.id),
+          onClose: () => {
+            setWelcomeBlocking(false);
+            navigate('/dashboard', { replace: true });
+          },
+        });
       }
     } catch (err: any) {
+      setWelcomeBlocking(false);
       setError(err.message || 'Unable to create account.');
     } finally {
       setLoading(false);
@@ -755,7 +802,7 @@ export const ResetPasswordPage: React.FC = () => {
 };
 
 export const AuthCallbackPage: React.FC = () => {
-  const { resendVerificationEmail } = useAuth();
+  const { resendVerificationEmail, hasUserSeenWelcome, markWelcomeSeen } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -773,18 +820,35 @@ export const AuthCallbackPage: React.FC = () => {
     let mounted = true;
     let redirectTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const completeWithSession = (sessionEmail?: string | null) => {
+    const completeWithSession = (sessionUser?: { id?: string; email?: string | null; user_metadata?: any } | null) => {
       if (!mounted) return;
       if (typeof window !== 'undefined') {
         localStorage.removeItem('resumeflow_pending_email');
       }
-      setConfirmedEmail(sessionEmail || null);
+      setConfirmedEmail(sessionUser?.email || null);
       setStatus('success');
-      redirectTimer = setTimeout(() => {
-        if (mounted) {
-          navigate('/dashboard', { replace: true });
-        }
-      }, 1500);
+
+      const uid = sessionUser?.id || sessionUser?.email || '';
+      const alreadySeen =
+        hasUserSeenWelcome(sessionUser as any) || (uid ? WelcomePopup.hasSeen(uid) : true);
+
+      if (!alreadySeen && uid) {
+        WelcomePopup.show(uid, {
+          hasSeenWelcome: false,
+          markSeen: () => markWelcomeSeen(sessionUser?.id),
+          onClose: () => {
+            if (mounted) {
+              navigate('/dashboard', { replace: true });
+            }
+          },
+        });
+      } else {
+        redirectTimer = setTimeout(() => {
+          if (mounted) {
+            navigate('/dashboard', { replace: true });
+          }
+        }, 1500);
+      }
     };
 
     const handleCallback = async () => {
@@ -852,7 +916,7 @@ export const AuthCallbackPage: React.FC = () => {
         }
 
         if (session) {
-          completeWithSession(session.user?.email);
+          completeWithSession(session.user);
           return;
         }
 
@@ -879,7 +943,7 @@ export const AuthCallbackPage: React.FC = () => {
           const { data } = await supabase.auth.getSession();
           if (!mounted) return;
           if (data.session) {
-            completeWithSession(data.session.user?.email);
+            completeWithSession(data.session.user);
           } else {
             setStatus('expired');
           }

@@ -6,6 +6,7 @@ import {
   fetchProfile,
   UserProfile,
   getAuthRedirectUrl,
+  isAdminAccount,
 } from '../lib/supabase';
 
 interface AuthContextType {
@@ -14,13 +15,18 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isConfigured: boolean;
+  isAdmin: boolean;
   isRecoverySession: boolean;
-  signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | Error | null }>;
+  isWelcomeBlocking: boolean;
+  setWelcomeBlocking: (blocking: boolean) => void;
+  hasUserSeenWelcome: (targetUser?: User | null) => boolean;
+  markWelcomeSeen: (targetUserId?: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | Error | null; user?: User | null }>;
   signUpWithEmail: (
     email: string,
     password: string,
     fullName: string
-  ) => Promise<{ error: AuthError | Error | null; needsEmailConfirmation?: boolean }>;
+  ) => Promise<{ error: AuthError | Error | null; needsEmailConfirmation?: boolean; user?: User | null }>;
   resendVerificationEmail: (email: string) => Promise<{ error: AuthError | Error | null }>;
   signInWithGoogle: () => Promise<{ error: AuthError | Error | null }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | Error | null }>;
@@ -69,6 +75,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState<boolean>(true);
   const [isConfigured, setIsConfigured] = useState<boolean>(isSupabaseConfigured());
   const [isRecoverySession, setIsRecoverySession] = useState<boolean>(false);
+  const [isWelcomeBlocking, setWelcomeBlocking] = useState<boolean>(false);
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
@@ -130,19 +137,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const signInWithEmail = async (email: string, password: string) => {
     const supabase = getSupabase();
     if (!supabase) {
-      return { error: new Error('Supabase is not configured. Please verify your project credentials.') };
+      return { error: new Error('Supabase is not configured. Please verify your project credentials.'), user: null };
     }
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
-    return { error };
+    return { error, user: data?.user ?? null };
   };
 
   const signUpWithEmail = async (email: string, password: string, fullName: string) => {
     const supabase = getSupabase();
     if (!supabase) {
-      return { error: new Error('Supabase is not configured. Please verify your project credentials.') };
+      return { error: new Error('Supabase is not configured. Please verify your project credentials.'), user: null };
     }
 
     const cleanEmail = email.trim();
@@ -163,7 +170,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     const needsEmailConfirmation = Boolean(data?.user && !data.session);
-    return { error, needsEmailConfirmation };
+    return { error, needsEmailConfirmation, user: data?.user ?? null };
   };
 
   const resendVerificationEmail = async (email: string) => {
@@ -244,6 +251,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const hasUserSeenWelcome = (targetUser?: User | null) => {
+    const u = targetUser ?? user;
+    return Boolean(u?.user_metadata?.has_seen_welcome || profile?.has_seen_welcome);
+  };
+
+  const markWelcomeSeen = async (targetUserId?: string) => {
+    const supabase = getSupabase();
+    if (!supabase) return;
+    try {
+      await supabase.auth.updateUser({
+        data: { has_seen_welcome: true },
+      });
+    } catch {
+      // Ignore metadata update errors
+    }
+    const uid = targetUserId || user?.id;
+    if (uid) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ has_seen_welcome: true, updated_at: new Date().toISOString() })
+          .eq('id', uid);
+      } catch {
+        // Ignore if optional profiles.has_seen_welcome column has not been added yet
+      }
+    }
+  };
+
+  const isAdmin = isAdminAccount(user, profile);
+
   return (
     <AuthContext.Provider
       value={{
@@ -252,7 +289,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         session,
         loading,
         isConfigured,
+        isAdmin,
         isRecoverySession,
+        isWelcomeBlocking,
+        setWelcomeBlocking,
+        hasUserSeenWelcome,
+        markWelcomeSeen,
         signInWithEmail,
         signUpWithEmail,
         resendVerificationEmail,

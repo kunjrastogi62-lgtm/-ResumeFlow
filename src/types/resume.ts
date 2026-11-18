@@ -93,6 +93,8 @@ export interface UserProfile {
   full_name: string | null;
   email: string | null;
   avatar_url: string | null;
+  role?: 'user' | 'admin' | string;
+  has_seen_welcome?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -102,6 +104,8 @@ export interface TemplateDefinition {
   name: string;
   description: string;
   preview_url?: string;
+  is_active?: boolean;
+  created_at?: string;
   badge?: string;
   popular?: boolean;
 }

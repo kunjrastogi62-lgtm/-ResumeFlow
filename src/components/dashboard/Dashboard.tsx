@@ -15,6 +15,7 @@ import {
   Settings,
   ArrowUpDown,
   AlertCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import { ResumeRecord, INITIAL_RESUME } from '../../types/resume';
 import {
@@ -27,7 +28,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
 
 export const Dashboard: React.FC = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
   const [resumes, setResumes] = useState<ResumeRecord[]>([]);
@@ -167,6 +168,15 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2.5">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="px-3 py-1.5 text-xs font-medium text-indigo-300 hover:text-white bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 rounded-lg flex items-center gap-1.5 transition"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
             <Link
               to="/settings"
               className="px-3 py-1.5 text-xs text-neutral-300 hover:text-white bg-[#141724] border border-[#232736] rounded-lg flex items-center gap-1.5 transition"

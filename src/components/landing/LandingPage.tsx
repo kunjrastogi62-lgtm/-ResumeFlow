@@ -17,7 +17,12 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { INITIAL_RESUME, TemplateDefinition } from '../../types/resume';
-import { fetchActiveTemplates } from '../../lib/supabase';
+import {
+  fetchActiveTemplates,
+  fetchSiteSettings,
+  DEFAULT_SITE_SETTINGS,
+  SiteSettings,
+} from '../../lib/supabase';
 import { ResumeRenderer } from '../templates/ResumeRenderer';
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
 
@@ -55,15 +60,17 @@ const DEFAULT_TEMPLATES: TemplateDefinition[] = [
 ];
 
 export const LandingPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   const [templates, setTemplates] = useState<TemplateDefinition[]>(DEFAULT_TEMPLATES);
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | 'contact' | null>(null);
 
   useEffect(() => {
+    fetchSiteSettings().then((cfg) => setSiteSettings(cfg));
     fetchActiveTemplates().then((dbTemplates) => {
       if (dbTemplates.length > 0) {
         setTemplates((prev) =>
@@ -108,6 +115,11 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div id="home" className="min-h-screen bg-[#090b10] text-[#e2e8f0] selection:bg-indigo-500/30 selection:text-indigo-200">
+      {siteSettings.announcementEnabled && siteSettings.announcementText && (
+        <div className="bg-indigo-600/20 border-b border-indigo-500/30 text-indigo-200 text-xs text-center py-2 px-4">
+          {siteSettings.announcementText}
+        </div>
+      )}
       {/* Navigation */}
       <header className="sticky top-0 z-40 border-b border-[#181c28] bg-[#090b10]/85 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
@@ -126,6 +138,14 @@ export const LandingPage: React.FC = () => {
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <>
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="px-3 py-1.5 text-xs font-medium text-indigo-300 hover:text-white bg-indigo-500/10 border border-indigo-500/30 rounded-lg transition"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <Link
                   to="/settings"
                   className="px-3 py-1.5 text-xs font-medium text-neutral-300 hover:text-white transition"
@@ -217,15 +237,15 @@ export const LandingPage: React.FC = () => {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#121521] border border-[#23283b] text-indigo-300 text-xs font-medium mb-6">
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Your Career. Your Story. Powered by AI.</span>
+            <span>{siteSettings.heroBadgeText}</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-[56px] font-bold tracking-tight text-white max-w-4xl mx-auto leading-[1.1]">
-            Build a Resume That Gets You Noticed.
+            {siteSettings.heroTitle}
           </h1>
 
           <p className="mt-5 text-sm sm:text-base text-neutral-400 max-w-2xl mx-auto leading-relaxed">
-            Craft crisp, recruiter-ready resumes with Google Gemini bullet enhancements, instant ATS scoring, job description tailoring, and secure Supabase cloud sync.
+            {siteSettings.heroTagline}
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3.5">
@@ -580,6 +600,9 @@ export const LandingPage: React.FC = () => {
             >
               Contact
             </button>
+            <Link to="/admin" className="hover:text-white transition">
+              Admin
+            </Link>
           </div>
         </div>
       </footer>
@@ -621,11 +644,11 @@ export const LandingPage: React.FC = () => {
                   Questions, feedback, or deployment support? Reach out anytime:
                 </p>
                 <a
-                  href="mailto:support@resumeflow.ai"
+                  href={`mailto:${siteSettings.supportEmail}`}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-[#161925] border border-[#252b3d] text-indigo-300 hover:text-indigo-200 transition"
                 >
                   <Mail className="w-3.5 h-3.5" />
-                  <span>support@resumeflow.ai</span>
+                  <span>{siteSettings.supportEmail}</span>
                 </a>
               </div>
             )}

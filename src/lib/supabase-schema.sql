@@ -8,9 +8,15 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   full_name TEXT,
   email TEXT,
   avatar_url TEXT,
+  role TEXT NOT NULL DEFAULT 'user',
+  has_seen_welcome BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Ensure role and has_seen_welcome columns exist on existing databases
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS has_seen_welcome BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- 2. RESUMES TABLE
 CREATE TABLE IF NOT EXISTS public.resumes (
@@ -48,6 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON public.resumes(user_id);
 CREATE INDEX IF NOT EXISTS idx_resumes_updated_at ON public.resumes(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_user_id ON public.ai_usage(user_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_updated_at ON public.profiles(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
 
 -- ====================================================================
 -- AUTO-UPDATE UPDATED_AT TRIGGER
@@ -77,18 +84,30 @@ CREATE TRIGGER trigger_resumes_updated_at
 -- ====================================================================
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  assigned_role TEXT;
 BEGIN
-  INSERT INTO public.profiles (id, full_name, email, avatar_url)
+  assigned_role := CASE
+    WHEN LOWER(COALESCE(NEW.email, '')) IN ('noreply@resume-flow-eight.vercel.app', 'kunjrastogi62@gmail.com') THEN 'admin'
+    ELSE 'user'
+  END;
+
+  INSERT INTO public.profiles (id, full_name, email, avatar_url, role)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', ''),
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture', '')
+    COALESCE(NEW.raw_user_meta_data->>'avatar_url', NEW.raw_user_meta_data->>'picture', ''),
+    assigned_role
   )
   ON CONFLICT (id) DO UPDATE
   SET
     full_name = EXCLUDED.full_name,
     email = EXCLUDED.email,
+    role = CASE
+      WHEN LOWER(COALESCE(EXCLUDED.email, '')) IN ('noreply@resume-flow-eight.vercel.app', 'kunjrastogi62@gmail.com') THEN 'admin'
+      ELSE public.profiles.role
+    END,
     updated_at = NOW();
   RETURN NEW;
 END;
@@ -99,6 +118,21 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
+
+-- ====================================================================
+-- ADMIN ROLE HELPER (SECURITY DEFINER PREVENTS RLS RECURSION)
+-- ====================================================================
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid()
+      AND (
+        role = 'admin'
+        OR LOWER(COALESCE(email, '')) IN ('noreply@resume-flow-eight.vercel.app', 'kunjrastogi62@gmail.com')
+      )
+  );
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public;
 
 -- ====================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
@@ -114,12 +148,12 @@ ALTER TABLE public.ai_usage ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT
-  USING (auth.uid() = id);
+  USING (auth.uid() = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile"
   ON public.profiles FOR UPDATE
-  USING (auth.uid() = id);
+  USING (auth.uid() = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile"
@@ -130,7 +164,7 @@ CREATE POLICY "Users can insert own profile"
 DROP POLICY IF EXISTS "Users can view own resumes" ON public.resumes;
 CREATE POLICY "Users can view own resumes"
   ON public.resumes FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Users can insert own resumes" ON public.resumes;
 CREATE POLICY "Users can insert own resumes"
@@ -140,31 +174,65 @@ CREATE POLICY "Users can insert own resumes"
 DROP POLICY IF EXISTS "Users can update own resumes" ON public.resumes;
 CREATE POLICY "Users can update own resumes"
   ON public.resumes FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR public.is_admin())
+  WITH CHECK (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Users can delete own resumes" ON public.resumes;
 CREATE POLICY "Users can delete own resumes"
   ON public.resumes FOR DELETE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR public.is_admin());
 
 -- TEMPLATES POLICIES
 DROP POLICY IF EXISTS "Authenticated users can read active templates" ON public.templates;
 CREATE POLICY "Authenticated users can read active templates"
   ON public.templates FOR SELECT
   TO authenticated, anon
-  USING (is_active = TRUE);
+  USING (is_active = TRUE OR public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can manage templates" ON public.templates;
+CREATE POLICY "Admins can manage templates"
+  ON public.templates FOR ALL
+  TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- AI_USAGE POLICIES
 DROP POLICY IF EXISTS "Users can read own usage records" ON public.ai_usage;
 CREATE POLICY "Users can read own usage records"
   ON public.ai_usage FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Users can insert own usage records" ON public.ai_usage;
 CREATE POLICY "Users can insert own usage records"
   ON public.ai_usage FOR INSERT
   WITH CHECK (auth.uid() = user_id);
+
+-- 5. SITE_SETTINGS TABLE (ADMIN LIVE CONFIGURATION)
+CREATE TABLE IF NOT EXISTS public.site_settings (
+  id TEXT PRIMARY KEY,
+  config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.site_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can read site settings" ON public.site_settings;
+CREATE POLICY "Public can read site settings"
+  ON public.site_settings FOR SELECT
+  TO authenticated, anon
+  USING (TRUE);
+
+DROP POLICY IF EXISTS "Admins can manage site settings" ON public.site_settings;
+CREATE POLICY "Admins can manage site settings"
+  ON public.site_settings FOR ALL
+  TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+-- Promote primary admin accounts if profiles already exist
+UPDATE public.profiles
+SET role = 'admin'
+WHERE LOWER(COALESCE(email, '')) IN ('noreply@resume-flow-eight.vercel.app', 'kunjrastogi62@gmail.com');
 
 -- ====================================================================
 -- SEED INITIAL TEMPLATES

@@ -419,3 +419,313 @@ export async function recordAiUsageInDb(userId: string, feature: string): Promis
     console.warn('AI usage recording notice:', err);
   }
 }
+
+// -------------------------------------------------------------
+// Admin Operations (protected by Supabase Auth + PostgreSQL RLS)
+// -------------------------------------------------------------
+
+export const PRIMARY_ADMIN_EMAILS = [
+  'noreply@resume-flow-eight.vercel.app',
+  'kunjrastogi62@gmail.com',
+];
+
+export function isAdminAccount(
+  user: { email?: string | null; app_metadata?: any } | null,
+  profile: UserProfile | null
+): boolean {
+  if (!user) return false;
+  if (profile?.role === 'admin') return true;
+  if (user.app_metadata?.role === 'admin') return true;
+  const email = (user.email || '').trim().toLowerCase();
+  return PRIMARY_ADMIN_EMAILS.includes(email);
+}
+
+export interface SiteSettings {
+  announcementEnabled: boolean;
+  announcementText: string;
+  heroBadgeText: string;
+  heroTitle: string;
+  heroTagline: string;
+  supportEmail: string;
+  allowSignups: boolean;
+}
+
+export const DEFAULT_SITE_SETTINGS: SiteSettings = {
+  announcementEnabled: false,
+  announcementText: 'ResumeFlow AI v2 is live — Gemini-powered ATS scoring & instant PDF export.',
+  heroBadgeText: 'Your Career. Your Story. Powered by AI.',
+  heroTitle: 'Build a Resume That Gets You Noticed.',
+  heroTagline: 'Craft ATS-ready, recruiter-tested resumes in minutes with structured templates, live A4 previews, and Google Gemini intelligence.',
+  supportEmail: 'support@resumeflow.ai',
+  allowSignups: true,
+};
+
+const SITE_SETTINGS_STORAGE_KEY = 'resumeflow_site_settings_v1';
+
+export async function fetchSiteSettings(): Promise<SiteSettings> {
+  let local: Partial<SiteSettings> = {};
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(SITE_SETTINGS_STORAGE_KEY);
+      if (raw) local = JSON.parse(raw);
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) {
+    return { ...DEFAULT_SITE_SETTINGS, ...local };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('site_settings')
+      .select('config')
+      .eq('id', 'global')
+      .maybeSingle();
+
+    if (!error && data?.config) {
+      const merged = { ...DEFAULT_SITE_SETTINGS, ...(data.config as Partial<SiteSettings>) };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(SITE_SETTINGS_STORAGE_KEY, JSON.stringify(merged));
+      }
+      return merged;
+    }
+  } catch {
+    // fallback cleanly to local settings
+  }
+
+  return { ...DEFAULT_SITE_SETTINGS, ...local };
+}
+
+export async function saveSiteSettingsAdmin(
+  settings: SiteSettings
+): Promise<{ savedToDb: boolean; error: any }> {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(SITE_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) return { savedToDb: false, error: null };
+
+  const { error } = await supabase
+    .from('site_settings')
+    .upsert(
+      {
+        id: 'global',
+        config: settings,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' }
+    );
+
+  if (error) {
+    return { savedToDb: false, error };
+  }
+  return { savedToDb: true, error: null };
+}
+
+export async function fetchAllProfilesAdmin(): Promise<{ data: UserProfile[]; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: new Error('Supabase is not configured.') };
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  return { data: (data || []) as UserProfile[], error };
+}
+
+export async function updateProfileAdmin(
+  targetUserId: string,
+  updates: { full_name?: string; role?: 'user' | 'admin' }
+): Promise<{ data: UserProfile | null; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: new Error('Supabase is not configured.') };
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', targetUserId)
+    .select()
+    .single();
+
+  return { data: (data as UserProfile) || null, error };
+}
+
+export async function updateUserRoleAdmin(
+  targetUserId: string,
+  role: 'user' | 'admin'
+): Promise<{ data: UserProfile | null; error: any }> {
+  return updateProfileAdmin(targetUserId, { role });
+}
+
+export async function fetchAllTemplatesAdmin(): Promise<{ data: TemplateDefinition[]; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: new Error('Supabase is not configured.') };
+
+  const { data, error } = await supabase
+    .from('templates')
+    .select('*')
+    .order('created_at', { ascending: true });
+
+  return { data: (data || []) as TemplateDefinition[], error };
+}
+
+export async function createTemplateAdmin(payload: {
+  name: string;
+  description: string;
+  preview_url?: string;
+  is_active?: boolean;
+}): Promise<{ data: TemplateDefinition | null; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: new Error('Supabase is not configured.') };
+
+  const { data, error } = await supabase
+    .from('templates')
+    .insert({
+      name: payload.name.trim(),
+      description: payload.description.trim(),
+      preview_url: payload.preview_url?.trim() || '',
+      is_active: payload.is_active ?? true,
+    })
+    .select()
+    .single();
+
+  return { data: (data as TemplateDefinition) || null, error };
+}
+
+export async function updateTemplateAdmin(
+  templateId: string,
+  updates: { name?: string; description?: string; preview_url?: string; is_active?: boolean }
+): Promise<{ data: TemplateDefinition | null; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: new Error('Supabase is not configured.') };
+
+  const { data, error } = await supabase
+    .from('templates')
+    .update(updates)
+    .eq('id', templateId)
+    .select()
+    .single();
+
+  return { data: (data as TemplateDefinition) || null, error };
+}
+
+export async function toggleTemplateActiveAdmin(
+  templateId: string,
+  isActive: boolean
+): Promise<{ error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: new Error('Supabase is not configured.') };
+
+  const { error } = await supabase
+    .from('templates')
+    .update({ is_active: isActive })
+    .eq('id', templateId);
+
+  return { error };
+}
+
+export async function seedDefaultTemplatesAdmin(): Promise<{ data: TemplateDefinition[]; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: new Error('Supabase is not configured.') };
+
+  const defaults = [
+    {
+      name: 'Professional Classic',
+      description: 'Traditional single-column layout optimized for corporate, law, finance, and ATS scanners.',
+      preview_url: '/templates/classic.png',
+      is_active: true,
+    },
+    {
+      name: 'Modern Minimalist',
+      description: 'Two-column layout balancing visual hierarchy with high data density.',
+      preview_url: '/templates/modern.png',
+      is_active: true,
+    },
+    {
+      name: 'Executive Slate',
+      description: 'Polished slate headers and executive metrics callouts for leadership roles.',
+      preview_url: '/templates/executive.png',
+      is_active: true,
+    },
+    {
+      name: 'Tech Monochrome',
+      description: 'Developer-first clean monospace styling with GitHub/project emphasis.',
+      preview_url: '/templates/tech.png',
+      is_active: true,
+    },
+    {
+      name: 'Creative Accent',
+      description: 'Contemporary typography with subtle accent borders for product & design roles.',
+      preview_url: '/templates/creative.png',
+      is_active: true,
+    },
+  ];
+
+  const { data, error } = await supabase.from('templates').insert(defaults).select();
+  return { data: (data || []) as TemplateDefinition[], error };
+}
+
+export async function deleteTemplateAdmin(templateId: string): Promise<{ error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: new Error('Supabase is not configured.') };
+
+  const { error } = await supabase.from('templates').delete().eq('id', templateId);
+  return { error };
+}
+
+export async function fetchRecentResumesAdmin(): Promise<{ data: ResumeRecord[]; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: new Error('Supabase is not configured.') };
+
+  const { data, error } = await supabase
+    .from('resumes')
+    .select('id, user_id, title, template, created_at, updated_at, resume_data')
+    .order('updated_at', { ascending: false })
+    .limit(100);
+
+  return { data: (data || []) as ResumeRecord[], error };
+}
+
+export async function updateResumeAdmin(
+  resumeId: string,
+  updates: { title?: string; template?: string }
+): Promise<{ data: ResumeRecord | null; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: null, error: new Error('Supabase is not configured.') };
+
+  const { data, error } = await supabase
+    .from('resumes')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', resumeId)
+    .select()
+    .single();
+
+  return { data: (data as ResumeRecord) || null, error };
+}
+
+export async function deleteResumeAdmin(resumeId: string): Promise<{ error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { error: new Error('Supabase is not configured.') };
+
+  const { error } = await supabase.from('resumes').delete().eq('id', resumeId);
+  return { error };
+}
+
+export async function fetchAllAiUsageAdmin(): Promise<{ data: AiUsageRecord[]; error: any }> {
+  const supabase = getSupabase();
+  if (!supabase) return { data: [], error: new Error('Supabase is not configured.') };
+
+  const { data, error } = await supabase
+    .from('ai_usage')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(150);
+
+  return { data: (data || []) as AiUsageRecord[], error };
+}
