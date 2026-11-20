@@ -109,6 +109,7 @@ export const LoginPage: React.FC = () => {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(navState.notice || null);
+  const [oauthFallbackUrl, setOauthFallbackUrl] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,11 +161,17 @@ export const LoginPage: React.FC = () => {
 
   const handleGoogle = async () => {
     setError(null);
+    setOauthFallbackUrl(null);
     setLoading(true);
-    const { error } = await signInWithGoogle();
+    const { error, oauthUrl } = await signInWithGoogle();
     if (error) {
       setError(formatAuthError(error));
       setLoading(false);
+    } else if (oauthUrl) {
+      setTimeout(() => {
+        setOauthFallbackUrl(oauthUrl);
+        setLoading(false);
+      }, 400);
     }
   };
 
@@ -202,6 +209,18 @@ export const LoginPage: React.FC = () => {
         )}
 
         <GoogleButton onClick={handleGoogle} loading={loading} label="Continue with Google" />
+
+        {oauthFallbackUrl && (
+          <a
+            href={oauthFallbackUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2 px-3 text-xs font-medium rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/35 text-indigo-200 flex items-center justify-center gap-2 transition"
+          >
+            <span>Open Google Sign-In in new tab</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </a>
+        )}
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
@@ -290,6 +309,7 @@ export const SignupPage: React.FC = () => {
   const [resendCooldown, setResendCooldown] = useState(0);
   const [resendStatus, setResendStatus] = useState<string | null>(null);
   const [signupsAllowed, setSignupsAllowed] = useState(true);
+  const [oauthFallbackUrl, setOauthFallbackUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSiteSettings().then((cfg) => setSignupsAllowed(cfg.allowSignups));
@@ -368,11 +388,17 @@ export const SignupPage: React.FC = () => {
 
   const handleGoogle = async () => {
     setError(null);
+    setOauthFallbackUrl(null);
     setLoading(true);
-    const { error } = await signInWithGoogle();
+    const { error, oauthUrl } = await signInWithGoogle();
     if (error) {
       setError(formatAuthError(error));
       setLoading(false);
+    } else if (oauthUrl) {
+      setTimeout(() => {
+        setOauthFallbackUrl(oauthUrl);
+        setLoading(false);
+      }, 400);
     }
   };
 
@@ -444,6 +470,18 @@ export const SignupPage: React.FC = () => {
         )}
 
         <GoogleButton onClick={handleGoogle} loading={loading} label="Sign up with Google" />
+
+        {oauthFallbackUrl && (
+          <a
+            href={oauthFallbackUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2 px-3 text-xs font-medium rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/35 text-indigo-200 flex items-center justify-center gap-2 transition"
+          >
+            <span>Open Google Sign-Up in new tab</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </a>
+        )}
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">

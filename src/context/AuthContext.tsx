@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import {
   getSupabase,
   isSupabaseConfigured,
+  getStoredSupabaseConfig,
   fetchProfile,
   UserProfile,
   getAuthRedirectUrl,
@@ -28,7 +29,7 @@ interface AuthContextType {
     fullName: string
   ) => Promise<{ error: AuthError | Error | null; needsEmailConfirmation?: boolean; user?: User | null }>;
   resendVerificationEmail: (email: string) => Promise<{ error: AuthError | Error | null }>;
-  signInWithGoogle: () => Promise<{ error: AuthError | Error | null }>;
+  signInWithGoogle: () => Promise<{ error: AuthError | Error | null; oauthUrl?: string }>;
   resetPassword: (email: string) => Promise<{ error: AuthError | Error | null }>;
   updatePassword: (newPassword: string) => Promise<{ error: AuthError | Error | null }>;
   signOut: () => Promise<void>;
@@ -54,7 +55,8 @@ export function formatAuthError(err: any): string {
     return 'An account with this email already exists. Try signing in instead.';
   }
   if (lower.includes('provider is not enabled') || lower.includes('unsupported provider')) {
-    return 'Google OAuth is not enabled yet in your Supabase Authentication Providers settings.';
+    const { url } = getStoredSupabaseConfig();
+    return `Google Sign-In is currently turned off in your Supabase project. Enable it in Supabase Dashboard → Authentication → Providers → Google (Authorized redirect URI: ${url}/auth/v1/callback), or sign in with Email & Password below.`;
   }
   if (lower.includes('error sending confirmation email') || lower.includes('error sending') || lower.includes('smtp')) {
     return 'Supabase could not send the confirmation email. In Supabase Auth > SMTP Settings, do not use a @vercel.app sender address (vercel.app domains cannot be verified for SMTP). Either turn off Custom SMTP, use a verified sender/Gmail App Password, or temporarily disable "Confirm email" in Supabase Auth > Providers > Email.';
@@ -76,6 +78,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isConfigured, setIsConfigured] = useState<boolean>(isSupabaseConfigured());
   const [isRecoverySession, setIsRecoverySession] = useState<boolean>(false);
   const [isWelcomeBlocking, setWelcomeBlocking] = useState<boolean>(false);
+  const googleEnabledRef = useRef<boolean | null>(null);
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
 
@@ -100,6 +103,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(false);
       return;
     }
+
+    const { url, anonKey } = getStoredSupabaseConfig();
+    fetch(`${url}/auth/v1/settings`, { headers: { apikey: anonKey } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((settings) => {
+        if (settings?.external && typeof settings.external.google === 'boolean') {
+          googleEnabledRef.current = settings.external.google;
+        }
+      })
+      .catch(() => {});
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -192,23 +205,62 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return { error };
   };
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (): Promise<{ error: AuthError | Error | null; oauthUrl?: string }> => {
     const supabase = getSupabase();
     if (!supabase) {
       return { error: new Error('Supabase is not configured. Please verify your project credentials.') };
     }
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    if (googleEnabledRef.current === false) {
+      const { url, anonKey } = getStoredSupabaseConfig();
+      try {
+        const settingsRes = await fetch(`${url}/auth/v1/settings`, {
+          headers: { apikey: anonKey },
+        });
+        if (settingsRes.ok) {
+          const settings = await settingsRes.json();
+          if (typeof settings?.external?.google === 'boolean') {
+            googleEnabledRef.current = settings.external.google;
+          }
+          if (settings?.external?.google === false) {
+            return {
+              error: new Error('Unsupported provider: provider is not enabled'),
+            };
+          }
+        }
+      } catch {
+        // Proceed if network check fails
+      }
+    }
+
+    const inIframe = typeof window !== 'undefined' && window.self !== window.top;
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: getAuthRedirectUrl('/auth/callback'),
+        skipBrowserRedirect: inIframe,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
         },
       },
     });
-    return { error };
+
+    if (error) {
+      return { error };
+    }
+
+    if (inIframe && data?.url) {
+      try {
+        window.top!.location.href = data.url;
+      } catch {
+        // Sandboxed iframe blocked top-level navigation; return URL so UI can show a direct tab link
+        return { error: null, oauthUrl: data.url };
+      }
+      return { error: null, oauthUrl: data.url };
+    }
+
+    return { error: null };
   };
 
   const resetPassword = async (email: string) => {
