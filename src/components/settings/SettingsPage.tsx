@@ -4,7 +4,6 @@ import {
   User,
   Lock,
   Sparkles,
-  Database,
   LogOut,
   CheckCircle2,
   AlertCircle,
@@ -12,9 +11,6 @@ import {
   Upload,
   LayoutDashboard,
   ArrowLeft,
-  Shield,
-  Copy,
-  Check,
   Clock,
   ShieldCheck,
 } from 'lucide-react';
@@ -24,13 +20,11 @@ import {
   uploadAvatarToStorage,
   fetchAiUsageHistory,
   AiUsageRecord,
-  PRODUCTION_SITE_URL,
-  getAuthRedirectUrl,
 } from '../../lib/supabase';
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
 
 export const SettingsPage: React.FC = () => {
-  const { user, profile, isAdmin, refreshProfile, updatePassword, signOut, setConfigModalOpen, isConfigured } = useAuth();
+  const { user, profile, isAdmin, refreshProfile, updatePassword, signOut } = useAuth();
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState(profile?.full_name || (user?.user_metadata?.full_name as string) || '');
@@ -46,7 +40,6 @@ export const SettingsPage: React.FC = () => {
 
   const [aiUsage, setAiUsage] = useState<AiUsageRecord[]>([]);
   const [loadingUsage, setLoadingUsage] = useState(true);
-  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile) {
@@ -128,12 +121,6 @@ export const SettingsPage: React.FC = () => {
     } finally {
       setSavingPassword(false);
     }
-  };
-
-  const handleCopy = (value: string) => {
-    navigator.clipboard.writeText(value);
-    setCopiedUrl(value);
-    setTimeout(() => setCopiedUrl(null), 1800);
   };
 
   const handleSignOut = async () => {
@@ -376,58 +363,8 @@ export const SettingsPage: React.FC = () => {
             </section>
           </div>
 
-          {/* Right column: Auth URLs & AI Usage */}
+          {/* Right column: AI Usage */}
           <div className="space-y-6">
-            <section className="p-5 bg-[#101219] border border-[#1f2433] rounded-2xl space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-emerald-400" />
-                  <h2 className="text-sm font-semibold text-white">Supabase & Auth URLs</h2>
-                </div>
-                <span
-                  className={`w-2 h-2 rounded-full ${isConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`}
-                  title={isConfigured ? 'Connected' : 'Not configured'}
-                />
-              </div>
-
-              <div className="space-y-2.5 text-[11px]">
-                {[
-                  { label: 'Production Site URL', val: PRODUCTION_SITE_URL },
-                  { label: 'Wildcard Redirect URL', val: `${PRODUCTION_SITE_URL}/**` },
-                  { label: 'Active Callback URL', val: getAuthRedirectUrl('/auth/callback') },
-                  { label: 'Active Reset URL', val: getAuthRedirectUrl('/reset-password') },
-                ].map((item) => (
-                  <div key={item.label} className="p-2.5 bg-[#090b10] border border-[#1d2130] rounded-lg space-y-1">
-                    <div className="text-neutral-500">{item.label}</div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-neutral-300 truncate">{item.val}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopy(item.val)}
-                        className="text-neutral-400 hover:text-white shrink-0"
-                        title="Copy URL"
-                      >
-                        {copiedUrl === item.val ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setConfigModalOpen(true)}
-                className="w-full py-2 text-xs font-medium rounded-lg bg-[#161925] hover:bg-[#1e2334] text-neutral-200 border border-[#252b3d] flex items-center justify-center gap-1.5 transition"
-              >
-                <Database className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Manage Supabase Connection</span>
-              </button>
-            </section>
-
             <section className="p-5 bg-[#101219] border border-[#1f2433] rounded-2xl space-y-3">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-indigo-400" />
