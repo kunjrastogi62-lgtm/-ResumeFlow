@@ -425,8 +425,8 @@ export async function recordAiUsageInDb(userId: string, feature: string): Promis
 // -------------------------------------------------------------
 
 export const PRIMARY_ADMIN_EMAILS = [
-  'noreply@resume-flow-eight.vercel.app',
   'kunjrastogi62@gmail.com',
+  'noreply@resume-flow-eight.vercel.app',
 ];
 
 export function isAdminAccount(

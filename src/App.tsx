@@ -90,7 +90,8 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         replace
         state={{
           from: `${location.pathname}${location.search}`,
-          notice: 'Sign in with your admin email (e.g. noreply@resume-flow-eight.vercel.app) to open the Admin Panel.',
+          email: 'kunjrastogi62@gmail.com',
+          notice: 'Sign in with your admin email (kunjrastogi62@gmail.com) to open the Admin Panel.',
         }}
       />
     );
@@ -108,7 +109,7 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             You are currently signed in as <span className="font-semibold text-white">{user.email}</span>, which does not have admin privileges yet.
           </p>
           <p className="text-[11px] text-neutral-400 leading-relaxed">
-            Sign in with your admin account (<span className="text-indigo-300">noreply@resume-flow-eight.vercel.app</span>) or promote your account to <code className="text-indigo-300">role = 'admin'</code> in Supabase <code className="text-indigo-300">profiles</code>.
+            Sign in with your admin account (<span className="text-indigo-300">kunjrastogi62@gmail.com</span>) or promote your account to <code className="text-indigo-300">role = 'admin'</code> in Supabase <code className="text-indigo-300">profiles</code>.
           </p>
           <div className="flex items-center gap-2.5 pt-2">
             <button
@@ -119,7 +120,7 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   replace: true,
                   state: {
                     from: '/admin',
-                    email: 'noreply@resume-flow-eight.vercel.app',
+                    email: 'kunjrastogi62@gmail.com',
                     notice: 'Enter your admin credentials to access the Admin Panel.',
                   },
                 });
