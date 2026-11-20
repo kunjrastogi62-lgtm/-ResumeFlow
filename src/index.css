@@ -3,6 +3,7 @@
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #2c4ec8;
   }
 
   input:-webkit-autofill,
@@ -16,6 +17,169 @@
   }
 }
 
+/* ==========================================================================
+   ResumeFlow Cinematic Abstract Gradient Background
+   Pure CSS layered gradients, blurred organic lobes, and subtle light grain
+   ========================================================================== */
+
+.rf-cinematic-bg {
+  contain: strict;
+  transform: translateZ(0);
+  background-color: #2f52cf;
+}
+
+.rf-bg-canvas {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 85% 75% at 48% 22%, rgba(255, 255, 255, 0.85) 0%, rgba(214, 232, 255, 0.55) 36%, transparent 74%),
+    radial-gradient(ellipse 75% 70% at 88% 36%, rgba(132, 114, 255, 0.92) 0%, rgba(101, 86, 236, 0.65) 48%, transparent 82%),
+    radial-gradient(ellipse 70% 75% at 10% 82%, rgba(24, 48, 152, 0.96) 0%, rgba(44, 82, 214, 0.72) 48%, transparent 82%),
+    linear-gradient(128deg, #4b79ec 0%, #83affc 24%, #cadfff 45%, #9a96ff 68%, #6353e4 88%, #4741bf 100%);
+}
+
+/* Left rich blue gradient glow (deep cobalt bottom-left rising into luminous sky blue) */
+.rf-bg-left-glow {
+  position: absolute;
+  inset: -8%;
+  background:
+    radial-gradient(ellipse 58% 58% at 6% 94%, #172d8c 0%, #2344b8 32%, rgba(43, 81, 209, 0.52) 60%, transparent 84%),
+    radial-gradient(ellipse 52% 46% at 12% 48%, rgba(124, 174, 255, 0.78) 0%, rgba(86, 137, 245, 0.42) 52%, transparent 80%),
+    radial-gradient(ellipse 46% 38% at 2% 6%, rgba(62, 108, 228, 0.78) 0%, rgba(98, 146, 248, 0.32) 56%, transparent 85%);
+  filter: blur(28px);
+}
+
+/* Diagonal organic sunlit cloud sweep from lower-left toward upper-center */
+.rf-bg-cloud-streak {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.rf-bg-cloud-streak::before {
+  content: "";
+  position: absolute;
+  left: -12%;
+  top: 16%;
+  width: 78vw;
+  height: 44vh;
+  min-width: 520px;
+  min-height: 280px;
+  border-radius: 52% 48% 60% 40% / 44% 56% 44% 56%;
+  background:
+    radial-gradient(ellipse 72% 48% at 52% 48%, rgba(255, 255, 255, 0.78) 0%, rgba(226, 240, 255, 0.56) 40%, rgba(154, 194, 255, 0.24) 72%, transparent 100%);
+  transform: rotate(-38deg);
+  filter: blur(46px);
+}
+
+.rf-bg-cloud-streak::after {
+  content: "";
+  position: absolute;
+  left: 6%;
+  top: 32%;
+  width: 56vw;
+  height: 26vh;
+  min-width: 380px;
+  min-height: 180px;
+  border-radius: 60% 40% 50% 50%;
+  background:
+    radial-gradient(ellipse 75% 50% at 50% 50%, rgba(244, 249, 255, 0.55) 0%, rgba(186, 217, 255, 0.34) 55%, transparent 100%);
+  transform: rotate(-42deg);
+  filter: blur(38px);
+}
+
+/* Bright white & light-blue glowing core in the upper-middle */
+.rf-bg-center-glow {
+  position: absolute;
+  left: 50%;
+  top: -8%;
+  width: min(74vw, 960px);
+  height: min(64vh, 580px);
+  transform: translateX(-54%);
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 52% 52% at 50% 48%, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 255, 0.92) 34%, rgba(214, 231, 255, 0.65) 62%, rgba(173, 203, 255, 0) 100%);
+  filter: blur(36px);
+}
+
+/* Large soft purple and violet cloud lobe on the right side */
+.rf-bg-right-violet {
+  position: absolute;
+  inset: 0;
+}
+
+.rf-bg-right-violet::before {
+  content: "";
+  position: absolute;
+  right: -10%;
+  top: -12%;
+  width: clamp(320px, 50vw, 840px);
+  height: clamp(360px, 78vh, 820px);
+  border-radius: 44% 56% 42% 58% / 58% 40% 60% 42%;
+  background:
+    radial-gradient(ellipse 68% 72% at 48% 44%, rgba(138, 122, 255, 0.92) 0%, rgba(114, 96, 244, 0.84) 44%, rgba(92, 75, 224, 0.55) 74%, rgba(78, 65, 204, 0) 100%);
+  transform: rotate(-8deg);
+  filter: blur(54px);
+}
+
+.rf-bg-right-violet::after {
+  content: "";
+  position: absolute;
+  right: -6%;
+  top: 6%;
+  width: clamp(240px, 34vw, 560px);
+  height: clamp(300px, 64vh, 660px);
+  border-radius: 55% 45% 48% 52%;
+  background:
+    radial-gradient(ellipse 70% 70% at 55% 48%, rgba(168, 154, 255, 0.65) 0%, rgba(122, 102, 248, 0.45) 54%, transparent 100%);
+  filter: blur(60px);
+}
+
+/* Subtle blue and purple flowing wave-like light effects near the bottom */
+.rf-bg-bottom-waves {
+  position: absolute;
+  inset: 0;
+}
+
+.rf-bg-bottom-waves::before {
+  content: "";
+  position: absolute;
+  left: -8%;
+  right: -8%;
+  bottom: -14%;
+  height: clamp(220px, 38vh, 420px);
+  border-radius: 58% 42% 0 0 / 70% 60% 0 0;
+  background:
+    radial-gradient(ellipse 46% 68% at 22% 72%, rgba(28, 55, 178, 0.88) 0%, rgba(56, 90, 222, 0.45) 60%, transparent 100%),
+    radial-gradient(ellipse 48% 70% at 56% 65%, rgba(115, 124, 252, 0.78) 0%, rgba(132, 118, 255, 0.42) 60%, transparent 100%),
+    radial-gradient(ellipse 44% 72% at 88% 72%, rgba(95, 79, 232, 0.88) 0%, rgba(67, 56, 194, 0.5) 65%, transparent 100%);
+  filter: blur(42px);
+}
+
+.rf-bg-bottom-waves::after {
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 6%;
+  bottom: -10%;
+  height: clamp(140px, 24vh, 260px);
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 70% 55% at 52% 65%, rgba(154, 152, 255, 0.56) 0%, rgba(110, 126, 248, 0.3) 55%, transparent 100%);
+  transform: rotate(-3deg);
+  filter: blur(36px);
+}
+
+/* Whisper-subtle atmospheric micro-grain texture for depth and smooth transitions */
+.rf-bg-grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='0.9'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
@@ -27,12 +191,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #232736;
+  background: rgba(18, 24, 48, 0.55);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #343a4e;
+  background: rgba(30, 40, 76, 0.75);
 }
 
 /* Print Styles for Pixel-Perfect PDF Export */

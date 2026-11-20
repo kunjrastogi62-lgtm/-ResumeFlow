@@ -16,6 +16,7 @@ import {
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { WelcomePopup } from './lib/welcome-popup';
+import { CinematicBackground } from './components/common/CinematicBackground';
 import { LandingPage } from './components/landing/LandingPage';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { ResumeBuilderView } from './components/editor/ResumeBuilderView';
@@ -31,9 +32,11 @@ import {
 import { SupabaseConfigModal } from './components/modals/SupabaseConfigModal';
 
 const AuthLoadingScreen: React.FC = () => (
-  <div className="min-h-screen bg-[#090b10] flex flex-col items-center justify-center gap-3 text-xs text-neutral-400">
-    <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
-    <span>Loading ResumeFlow...</span>
+  <div className="min-h-screen relative flex flex-col items-center justify-center gap-3 text-xs text-white">
+    <div className="px-6 py-5 rounded-2xl bg-[#0b0f1e]/82 backdrop-blur-xl border border-white/12 shadow-2xl flex flex-col items-center gap-3">
+      <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
+      <span>Loading ResumeFlow...</span>
+    </div>
   </div>
 );
 
@@ -95,8 +98,8 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-[#090b10] text-[#e2e8f0] flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#101219] border border-[#1f2433] rounded-2xl p-6 space-y-4 shadow-2xl">
+      <div className="min-h-screen relative text-[#e2e8f0] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-[#0d111e]/88 backdrop-blur-xl border border-white/15 rounded-2xl p-6 space-y-4 shadow-2xl">
           <div className="flex items-center gap-2.5 text-amber-300">
             <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
             <h1 className="text-base font-bold text-white">Admin Access Required</h1>
@@ -173,8 +176,10 @@ function AppRoutes() {
   }, [isRecoverySession, location.pathname, location.search, location.hash, navigate]);
 
   return (
-    <div className="min-h-screen bg-[#090b10] text-[#e2e8f0]">
-      <Routes>
+    <div className="min-h-screen relative text-[#e2e8f0]">
+      <CinematicBackground />
+      <div className="relative z-10 min-h-screen">
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
@@ -251,6 +256,7 @@ function AppRoutes() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </div>
 
       <SupabaseConfigModal
         isOpen={configModalOpen}

@@ -141,8 +141,8 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#090b10] text-[#e2e8f0]">
-      <header className="border-b border-[#1b1f2d] bg-[#0e1017]">
+    <div className="min-h-screen bg-transparent text-[#e2e8f0]">
+      <header className="sticky top-0 z-30 border-b border-white/12 bg-[#0a0d1a]/78 backdrop-blur-xl">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/dashboard" className="hover:opacity-90 transition">
@@ -181,16 +181,16 @@ export const SettingsPage: React.FC = () => {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-[#0b0f1e]/82 backdrop-blur-xl border border-white/12 shadow-xl">
           <div>
             <h1 className="text-xl font-bold text-white tracking-tight">Settings & Profile</h1>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-300 mt-1">
               Manage your Supabase profile, authentication security, and Gemini AI activity.
             </p>
           </div>
           <Link
             to="/dashboard"
-            className="text-xs text-neutral-400 hover:text-white flex items-center gap-1 transition"
+            className="text-xs text-neutral-300 hover:text-white flex items-center gap-1 transition"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back to resumes</span>
@@ -201,7 +201,7 @@ export const SettingsPage: React.FC = () => {
           {/* Left 2 columns: Profile & Security */}
           <div className="lg:col-span-2 space-y-6">
             {/* Profile Card */}
-            <section className="p-6 bg-[#101219] border border-[#1f2433] rounded-2xl space-y-5">
+            <section className="p-6 bg-[#0d111e]/88 backdrop-blur-xl border border-white/12 rounded-2xl space-y-5 shadow-xl">
               <div className="flex items-center gap-2.5 border-b border-[#1b1f2d] pb-4">
                 <User className="w-4 h-4 text-indigo-400" />
                 <div>
@@ -303,7 +303,7 @@ export const SettingsPage: React.FC = () => {
             </section>
 
             {/* Password Card */}
-            <section className="p-6 bg-[#101219] border border-[#1f2433] rounded-2xl space-y-4">
+            <section className="p-6 bg-[#0d111e]/88 backdrop-blur-xl border border-white/12 rounded-2xl space-y-4 shadow-xl">
               <div className="flex items-center gap-2.5 border-b border-[#1b1f2d] pb-4">
                 <Lock className="w-4 h-4 text-violet-400" />
                 <div>
@@ -365,7 +365,7 @@ export const SettingsPage: React.FC = () => {
 
           {/* Right column: AI Usage */}
           <div className="space-y-6">
-            <section className="p-5 bg-[#101219] border border-[#1f2433] rounded-2xl space-y-3">
+            <section className="p-5 bg-[#0d111e]/88 backdrop-blur-xl border border-white/12 rounded-2xl space-y-3 shadow-xl">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-indigo-400" />
                 <h2 className="text-sm font-semibold text-white">Recent AI Usage</h2>

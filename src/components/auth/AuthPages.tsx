@@ -22,14 +22,14 @@ const AuthShell: React.FC<{
   subtitle: string;
   children: React.ReactNode;
 }> = ({ title, subtitle, children }) => (
-  <div className="min-h-screen bg-[#090b10] text-[#e2e8f0] flex flex-col justify-between p-4 sm:p-6">
-    <div className="max-w-6xl w-full mx-auto flex items-center justify-between pt-2">
+  <div className="min-h-screen bg-transparent text-[#e2e8f0] flex flex-col justify-between p-4 sm:p-6">
+    <div className="max-w-6xl w-full mx-auto flex items-center justify-between px-4 py-2.5 rounded-2xl bg-[#0a0d1a]/76 backdrop-blur-xl border border-white/12 shadow-lg">
       <Link to="/" className="hover:opacity-90 transition">
         <ResumeFlowLogo size="md" />
       </Link>
       <Link
         to="/"
-        className="text-xs text-neutral-400 hover:text-white flex items-center gap-1.5 transition"
+        className="text-xs text-neutral-300 hover:text-white flex items-center gap-1.5 transition"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
         <span>Back to home</span>
@@ -37,17 +37,19 @@ const AuthShell: React.FC<{
     </div>
 
     <div className="w-full max-w-[420px] mx-auto my-10">
-      <div className="bg-[#101219] border border-[#1f2433] rounded-2xl p-6 sm:p-8 shadow-2xl">
+      <div className="bg-[#0d111e]/88 backdrop-blur-xl border border-white/15 rounded-2xl p-6 sm:p-8 shadow-[0_24px_64px_rgba(10,16,48,0.45)]">
         <div className="mb-6">
           <h1 className="text-xl font-bold text-white tracking-tight">{title}</h1>
-          <p className="text-xs text-neutral-400 mt-1 leading-relaxed">{subtitle}</p>
+          <p className="text-xs text-neutral-300 mt-1 leading-relaxed">{subtitle}</p>
         </div>
         {children}
       </div>
     </div>
 
-    <div className="text-center text-[11px] text-neutral-500 pb-2">
-      ResumeFlow • Your Career. Your Story. Powered by AI.
+    <div className="text-center pb-2">
+      <span className="inline-block px-4 py-1.5 rounded-full bg-[#0a0d1a]/70 backdrop-blur-md border border-white/12 text-[11px] text-neutral-200">
+        ResumeFlow • Your Career. Your Story. Powered by AI.
+      </span>
     </div>
   </div>
 );
@@ -227,7 +229,7 @@ export const LoginPage: React.FC = () => {
             <div className="w-full border-t border-[#1f2433]" />
           </div>
           <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-            <span className="bg-[#101219] px-2.5 text-neutral-500">Or with email</span>
+            <span className="bg-[#0d111e] px-2.5 text-neutral-400 rounded">Or with email</span>
           </div>
         </div>
 
@@ -488,7 +490,7 @@ export const SignupPage: React.FC = () => {
             <div className="w-full border-t border-[#1f2433]" />
           </div>
           <div className="relative flex justify-center text-[10px] uppercase tracking-wider">
-            <span className="bg-[#101219] px-2.5 text-neutral-500">Or with email</span>
+            <span className="bg-[#0d111e] px-2.5 text-neutral-400 rounded">Or with email</span>
           </div>
         </div>
 

@@ -403,9 +403,9 @@ UPDATE public.profiles SET role = 'admin' WHERE LOWER(COALESCE(email, '')) IN ('
   };
 
   return (
-    <div className="min-h-screen bg-[#090b10] text-[#e2e8f0]">
+    <div className="min-h-screen bg-transparent text-[#e2e8f0]">
       {/* Header */}
-      <header className="border-b border-[#181c28] bg-[#0e1017]">
+      <header className="sticky top-0 z-30 border-b border-white/12 bg-[#0a0d1a]/78 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/" className="hover:opacity-90 transition">
@@ -447,10 +447,10 @@ UPDATE public.profiles SET role = 'admin' WHERE LOWER(COALESCE(email, '')) IN ('
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* Title bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-[#0b0f1e]/82 backdrop-blur-xl border border-white/12 shadow-xl">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">Admin Control Panel</h1>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-300 mt-1">
               Signed in as <span className="text-indigo-300 font-medium">{profile?.email || user?.email}</span> • Edit users, templates, resumes, and live site settings
             </p>
           </div>

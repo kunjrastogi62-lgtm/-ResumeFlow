@@ -155,9 +155,9 @@ export const Dashboard: React.FC = () => {
   }, [resumes, searchQuery, sortOrder]);
 
   return (
-    <div className="min-h-screen bg-[#090b10] text-[#e2e8f0]">
+    <div className="min-h-screen bg-transparent text-[#e2e8f0]">
       {/* Top Navbar */}
-      <header className="border-b border-[#181c28] bg-[#0e1017]">
+      <header className="sticky top-0 z-30 border-b border-white/12 bg-[#0a0d1a]/78 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link to="/" className="hover:opacity-90 transition">
@@ -236,10 +236,10 @@ export const Dashboard: React.FC = () => {
         )}
 
         {/* Header Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-[#0b0f1e]/82 backdrop-blur-xl border border-white/12 shadow-xl">
           <div>
             <h1 className="text-2xl font-bold text-white tracking-tight">My Resumes</h1>
-            <p className="text-xs text-neutral-400 mt-1">
+            <p className="text-xs text-neutral-300 mt-1">
               Manage, tailor, and export your resumes stored in Supabase PostgreSQL
             </p>
           </div>
@@ -279,12 +279,12 @@ export const Dashboard: React.FC = () => {
 
         {/* Resumes Grid */}
         {loading ? (
-          <div className="py-20 text-center space-y-3">
-            <Loader2 className="w-7 h-7 animate-spin text-indigo-500 mx-auto" />
-            <p className="text-xs text-neutral-400">Loading your resumes...</p>
+          <div className="py-20 text-center space-y-3 rounded-2xl bg-[#0b0f1e]/75 backdrop-blur-xl border border-white/12">
+            <Loader2 className="w-7 h-7 animate-spin text-indigo-400 mx-auto" />
+            <p className="text-xs text-neutral-200">Loading your resumes...</p>
           </div>
         ) : filteredResumes.length === 0 ? (
-          <div className="p-12 text-center bg-[#101219] border border-[#1d2130] rounded-2xl space-y-4">
+          <div className="p-12 text-center bg-[#0d111e]/88 backdrop-blur-xl border border-white/12 rounded-2xl space-y-4 shadow-xl">
             <div className="w-12 h-12 rounded-xl bg-[#161925] border border-[#23283b] text-neutral-400 flex items-center justify-center mx-auto">
               <FileText className="w-6 h-6" />
             </div>
@@ -310,7 +310,7 @@ export const Dashboard: React.FC = () => {
             {filteredResumes.map((resume) => (
               <div
                 key={resume.id}
-                className="group p-5 bg-[#101219] border border-[#1d2130] hover:border-indigo-500/40 rounded-2xl transition flex flex-col justify-between relative"
+                className="group p-5 bg-[#0d111e]/88 backdrop-blur-xl border border-white/12 hover:border-indigo-400/50 rounded-2xl transition flex flex-col justify-between relative shadow-xl"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">

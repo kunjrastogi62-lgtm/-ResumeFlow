@@ -212,23 +212,25 @@ export const ResumeBuilderView: React.FC = () => {
 
   if (loadingResume) {
     return (
-      <div className="min-h-screen bg-[#090b10] flex flex-col items-center justify-center gap-3 text-xs text-neutral-400">
-        <Loader2 className="w-7 h-7 animate-spin text-indigo-500" />
-        <span>Loading resume from Supabase PostgreSQL...</span>
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center gap-3 text-xs text-white">
+        <div className="px-6 py-5 rounded-2xl bg-[#0b0f1e]/82 backdrop-blur-xl border border-white/12 shadow-2xl flex flex-col items-center gap-3">
+          <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
+          <span>Loading resume from Supabase PostgreSQL...</span>
+        </div>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-[#090b10] flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs max-w-md flex items-center gap-2.5">
+      <div className="min-h-screen bg-transparent flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="p-4 rounded-xl bg-[#0d111e]/90 backdrop-blur-xl border border-rose-500/30 text-rose-300 text-xs max-w-md flex items-center gap-2.5 shadow-xl">
           <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
           <span>{loadError}</span>
         </div>
         <Link
           to="/dashboard"
-          className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
+          className="px-4 py-2 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition shadow-lg"
         >
           Back to Dashboard
         </Link>
@@ -237,9 +239,9 @@ export const ResumeBuilderView: React.FC = () => {
   }
 
   return (
-    <div className="print-shell flex flex-col h-screen bg-[#090b10] text-[#e2e8f0] overflow-hidden">
+    <div className="print-shell flex flex-col h-screen bg-transparent text-[#e2e8f0] overflow-hidden">
       {/* Header Toolbar */}
-      <header className="no-print h-14 bg-[#101219] border-b border-[#1f2433] px-3 sm:px-4 flex items-center justify-between z-30 shrink-0 gap-2">
+      <header className="no-print h-14 bg-[#0a0d1a]/85 backdrop-blur-xl border-b border-white/12 px-3 sm:px-4 flex items-center justify-between z-30 shrink-0 gap-2">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <Link
             to="/dashboard"
@@ -391,7 +393,7 @@ export const ResumeBuilderView: React.FC = () => {
       <div className="print-canvas flex-1 flex overflow-hidden">
         {/* Editor Form */}
         <section
-          className={`no-print w-full md:w-[460px] lg:w-[520px] shrink-0 border-r border-[#1f2433] flex-col bg-[#101219] overflow-hidden ${
+          className={`no-print w-full md:w-[460px] lg:w-[520px] shrink-0 border-r border-white/12 flex-col bg-[#0d111e]/92 backdrop-blur-xl overflow-hidden ${
             mobilePane === 'edit' ? 'flex' : 'hidden md:flex'
           }`}
         >
@@ -410,7 +412,7 @@ export const ResumeBuilderView: React.FC = () => {
 
         {/* Live Canvas */}
         <section
-          className={`print-canvas flex-1 flex-col bg-[#06070b] overflow-hidden relative ${
+          className={`print-canvas flex-1 flex-col bg-[#070b18]/55 backdrop-blur-[2px] overflow-hidden relative ${
             mobilePane === 'preview' ? 'flex' : 'hidden md:flex'
           }`}
         >

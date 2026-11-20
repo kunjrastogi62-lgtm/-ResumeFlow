@@ -114,14 +114,14 @@ export const LandingPage: React.FC = () => {
   ];
 
   return (
-    <div id="home" className="min-h-screen bg-[#090b10] text-[#e2e8f0] selection:bg-indigo-500/30 selection:text-indigo-200">
+    <div id="home" className="min-h-screen relative bg-transparent text-[#e2e8f0] selection:bg-indigo-500/30 selection:text-indigo-200">
       {siteSettings.announcementEnabled && siteSettings.announcementText && (
-        <div className="bg-indigo-600/20 border-b border-indigo-500/30 text-indigo-200 text-xs text-center py-2 px-4">
+        <div className="bg-[#0b1024]/80 backdrop-blur-md border-b border-indigo-400/25 text-indigo-100 text-xs text-center py-2 px-4">
           {siteSettings.announcementText}
         </div>
       )}
       {/* Navigation */}
-      <header className="sticky top-0 z-40 border-b border-[#181c28] bg-[#090b10]/85 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-white/12 bg-[#090d1b]/78 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="hover:opacity-90 transition">
             <ResumeFlowLogo size="md" showTag />
@@ -191,7 +191,7 @@ export const LandingPage: React.FC = () => {
 
         {/* Mobile Nav Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-[#181c28] bg-[#0d0f17] px-4 py-4 space-y-3 text-xs">
+          <div className="md:hidden border-t border-white/12 bg-[#0b0f1f]/95 backdrop-blur-xl px-4 py-4 space-y-3 text-xs">
             <div className="flex flex-col space-y-2.5 text-neutral-300 font-medium">
               <a href="#home" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">Home</a>
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">Features</a>
@@ -232,26 +232,24 @@ export const LandingPage: React.FC = () => {
 
       {/* Hero Section */}
       <section className="relative pt-16 sm:pt-24 pb-20 overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[540px] h-[260px] bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
-
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#121521] border border-[#23283b] text-indigo-300 text-xs font-medium mb-6">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0d1226]/85 backdrop-blur-md border border-white/20 text-indigo-200 text-xs font-medium mb-6 shadow-sm">
+            <Sparkles className="w-3.5 h-3.5 text-indigo-300" />
             <span>{siteSettings.heroBadgeText}</span>
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-[56px] font-bold tracking-tight text-white max-w-4xl mx-auto leading-[1.1]">
+          <h1 className="text-3xl sm:text-5xl lg:text-[56px] font-bold tracking-tight text-[#0a1024] max-w-4xl mx-auto leading-[1.1]">
             {siteSettings.heroTitle}
           </h1>
 
-          <p className="mt-5 text-sm sm:text-base text-neutral-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="mt-5 text-sm sm:text-base text-[#1a2544] font-medium max-w-2xl mx-auto leading-relaxed">
             {siteSettings.heroTagline}
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3.5">
             <button
               onClick={() => handleBuildClick()}
-              className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 transition shadow-sm"
+              className="px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 transition shadow-lg shadow-indigo-950/25"
             >
               <span>Build My Resume</span>
               <ArrowRight className="w-4 h-4" />
@@ -259,30 +257,30 @@ export const LandingPage: React.FC = () => {
 
             <a
               href="#templates"
-              className="px-5 py-2.5 rounded-lg bg-[#121521] hover:bg-[#191d2d] border border-[#252a3d] text-neutral-200 text-xs sm:text-sm font-medium transition"
+              className="px-5 py-2.5 rounded-lg bg-[#0d1226]/85 hover:bg-[#161e3d] border border-white/20 text-white text-xs sm:text-sm font-medium backdrop-blur-md transition shadow-sm"
             >
               Explore Templates
             </a>
           </div>
 
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-6 text-xs text-neutral-500">
+          <div className="mt-9 inline-flex flex-wrap items-center justify-center gap-5 px-4 py-2 rounded-xl bg-white/55 backdrop-blur-md border border-white/60 text-xs text-[#0f172a] font-medium shadow-sm">
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-700" />
               <span>ATS-Verified Structures</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-700" />
               <span>Supabase PostgreSQL Sync</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-indigo-700" />
               <span>Vector PDF Export</span>
             </div>
           </div>
 
           {/* Interactive Workspace Showcase */}
-          <div className="mt-14 max-w-4xl mx-auto rounded-2xl border border-[#1f2433] bg-[#0e1017] p-4 sm:p-6 text-left shadow-2xl">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#191d2b]">
+          <div className="mt-14 max-w-4xl mx-auto rounded-2xl border border-white/15 bg-[#0d111e]/88 backdrop-blur-xl p-4 sm:p-6 text-left shadow-[0_24px_60px_rgba(12,18,52,0.42)]">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-neutral-700" />
                 <span className="w-2.5 h-2.5 rounded-full bg-neutral-700" />
@@ -320,14 +318,14 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 border-t border-[#181c28] bg-[#0b0d13]">
+      <section id="features" className="py-20 border-t border-white/15">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mb-12">
+          <div className="max-w-2xl mb-10 p-6 rounded-2xl bg-[#0b0f1e]/80 backdrop-blur-xl border border-white/12 shadow-xl">
             <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Features</p>
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-2">
               Precision tools for modern job searches
             </h2>
-            <p className="text-sm text-neutral-400 mt-2">
+            <p className="text-sm text-neutral-300 mt-2">
               Designed to eliminate busywork and surface the measurable impact recruiters look for.
             </p>
           </div>
@@ -367,7 +365,7 @@ export const LandingPage: React.FC = () => {
             ].map((f) => (
               <div
                 key={f.title}
-                className="p-6 rounded-xl bg-[#101219] border border-[#1d2130] hover:border-[#2c334a] transition space-y-3"
+                className="p-6 rounded-xl bg-[#0d111e]/86 backdrop-blur-xl border border-white/12 hover:border-indigo-400/45 transition space-y-3 shadow-xl"
               >
                 <div className="w-9 h-9 rounded-lg bg-[#161925] border border-[#23283b] text-indigo-400 flex items-center justify-center">
                   <f.icon className="w-4 h-4" />
@@ -381,21 +379,21 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* Templates Showcase with Live Previews */}
-      <section id="templates" className="py-20 border-t border-[#181c28]">
+      <section id="templates" className="py-20 border-t border-white/15">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-12">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10 p-6 rounded-2xl bg-[#0b0f1e]/80 backdrop-blur-xl border border-white/12 shadow-xl">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Templates</p>
               <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-2">
                 Recruiter-approved layouts
               </h2>
-              <p className="text-sm text-neutral-400 mt-2 max-w-xl">
+              <p className="text-sm text-neutral-300 mt-2 max-w-xl">
                 Every template renders live in the editor and exports cleanly for both human hiring managers and ATS parsers.
               </p>
             </div>
             <button
               onClick={() => handleBuildClick()}
-              className="self-start sm:self-auto px-4 py-2 text-xs font-semibold rounded-lg bg-[#141724] hover:bg-[#1c2032] border border-[#252a3d] text-white transition flex items-center gap-1.5"
+              className="self-start sm:self-auto px-4 py-2 text-xs font-semibold rounded-lg bg-[#141724] hover:bg-[#1c2032] border border-white/15 text-white transition flex items-center gap-1.5"
             >
               <span>Start from any template</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -407,7 +405,7 @@ export const LandingPage: React.FC = () => {
               <div
                 key={tmpl.id}
                 onClick={() => handleBuildClick(tmpl.id)}
-                className="group rounded-2xl bg-[#101219] border border-[#1d2130] hover:border-indigo-500/40 overflow-hidden cursor-pointer transition flex flex-col"
+                className="group rounded-2xl bg-[#0d111e]/88 backdrop-blur-xl border border-white/12 hover:border-indigo-400/50 overflow-hidden cursor-pointer transition flex flex-col shadow-xl"
               >
                 {/* Live Scaled Mini Preview */}
                 <div className="h-64 bg-[#07080c] border-b border-[#1d2130] overflow-hidden relative flex justify-center pt-4">
@@ -444,9 +442,9 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* How It Works */}
-      <section id="how-it-works" className="py-20 border-t border-[#181c28] bg-[#0b0d13]">
+      <section id="how-it-works" className="py-20 border-t border-white/15">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mb-12">
+          <div className="max-w-2xl mb-10 p-6 rounded-2xl bg-[#0b0f1e]/80 backdrop-blur-xl border border-white/12 shadow-xl">
             <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">Workflow</p>
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-2">
               Three steps from draft to interview
@@ -471,10 +469,10 @@ export const LandingPage: React.FC = () => {
                 desc: 'Keep multiple tailored versions organized in your private Supabase dashboard and download clean PDFs anytime.',
               },
             ].map((item) => (
-              <div key={item.step} className="p-6 rounded-xl bg-[#101219] border border-[#1d2130] space-y-3">
+              <div key={item.step} className="p-6 rounded-xl bg-[#0d111e]/86 backdrop-blur-xl border border-white/12 space-y-3 shadow-xl">
                 <span className="text-xs font-mono font-semibold text-indigo-400">{item.step}</span>
                 <h3 className="text-sm font-semibold text-white">{item.title}</h3>
-                <p className="text-xs text-neutral-400 leading-relaxed">{item.desc}</p>
+                <p className="text-xs text-neutral-300 leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -482,15 +480,15 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* About & Security Section */}
-      <section id="about" className="py-20 border-t border-[#181c28]">
+      <section id="about" className="py-20 border-t border-white/15">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-            <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+            <div className="p-6 sm:p-8 rounded-2xl bg-[#0b0f1e]/82 backdrop-blur-xl border border-white/12 space-y-4 shadow-xl flex flex-col justify-center">
               <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">About ResumeFlow</p>
               <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 Built for clarity, speed, and data ownership
               </h2>
-              <p className="text-xs sm:text-sm text-neutral-400 leading-relaxed">
+              <p className="text-xs sm:text-sm text-neutral-300 leading-relaxed">
                 ResumeFlow was built to replace bloated, paywalled resume tools with a focused workspace. Your resume data stays private inside your authenticated Supabase PostgreSQL database with Row Level Security enforced at the database layer.
               </p>
               <div className="pt-2 flex flex-wrap gap-3">
@@ -509,7 +507,7 @@ export const LandingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-[#101219] border border-[#1d2130] space-y-4">
+            <div className="p-6 sm:p-8 rounded-2xl bg-[#0d111e]/86 backdrop-blur-xl border border-white/12 space-y-4 shadow-xl flex flex-col justify-center">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   <Lock className="w-4 h-4" />
@@ -531,9 +529,9 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* FAQs */}
-      <section id="faq" className="py-20 border-t border-[#181c28] bg-[#0b0d13]">
+      <section id="faq" className="py-20 border-t border-white/15">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
+          <div className="text-center mb-10 p-6 rounded-2xl bg-[#0b0f1e]/80 backdrop-blur-xl border border-white/12 shadow-xl">
             <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">FAQs</p>
             <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight mt-2">
               Frequently asked questions
@@ -544,7 +542,7 @@ export const LandingPage: React.FC = () => {
             {faqs.map((faq, idx) => (
               <div
                 key={idx}
-                className="border border-[#1d2130] rounded-xl overflow-hidden bg-[#101219]"
+                className="border border-white/12 rounded-xl overflow-hidden bg-[#0d111e]/86 backdrop-blur-xl shadow-lg"
               >
                 <button
                   type="button"
@@ -559,7 +557,7 @@ export const LandingPage: React.FC = () => {
                   />
                 </button>
                 {activeFaq === idx && (
-                  <div className="px-5 pb-4 text-xs text-neutral-400 leading-relaxed border-t border-[#181c28] pt-3">
+                  <div className="px-5 pb-4 text-xs text-neutral-300 leading-relaxed border-t border-white/10 pt-3">
                     {faq.a}
                   </div>
                 )}
@@ -570,7 +568,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-[#181c28] py-10 bg-[#07090d] text-neutral-500 text-xs">
+      <footer className="border-t border-white/12 py-10 bg-[#080b16]/82 backdrop-blur-xl text-neutral-300 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <ResumeFlowLogo size="sm" />
