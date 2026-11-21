@@ -19,6 +19,7 @@ import {
   SiteSettings,
 } from '../../lib/supabase';
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
+import { LiveDateBadge } from '../common/LiveDateBadge';
 import { PRIMARY_WEBSITE_URL, OFFICIAL_WEBSITE_URL } from '../common/SecurityNotice';
 
 interface PolicySection {
@@ -442,7 +443,7 @@ export const PrivacyPolicyPage: React.FC = () => {
             {user ? (
               <Link
                 to="/dashboard"
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5"
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 whitespace-nowrap"
               >
                 <span>Dashboard</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -450,11 +451,12 @@ export const PrivacyPolicyPage: React.FC = () => {
             ) : (
               <Link
                 to="/login"
-                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap"
               >
                 Login
               </Link>
             )}
+            <LiveDateBadge className="hidden sm:inline-flex" />
           </div>
         </div>
       </header>

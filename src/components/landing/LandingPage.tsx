@@ -26,6 +26,7 @@ import {
 } from '../../lib/supabase';
 import { ResumeRenderer } from '../templates/ResumeRenderer';
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
+import { LiveDateBadge } from '../common/LiveDateBadge';
 import { SecurityNoticeSection, PRIMARY_WEBSITE_URL, OFFICIAL_WEBSITE_URL } from '../common/SecurityNotice';
 
 const DEFAULT_TEMPLATES: TemplateDefinition[] = [
@@ -140,7 +141,7 @@ export const LandingPage: React.FC = () => {
             <ResumeFlowLogo size="md" showTag />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-7 text-xs font-medium text-neutral-400">
+          <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-xs font-medium text-neutral-400">
             <a href="#home" className="hover:text-white transition">Home</a>
             <a href="#features" className="hover:text-white transition">Features</a>
             <a href="#templates" className="hover:text-white transition">Templates</a>
@@ -149,7 +150,7 @@ export const LandingPage: React.FC = () => {
             <a href="#faq" className="hover:text-white transition">FAQs</a>
           </nav>
 
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2.5">
             {user ? (
               <>
                 {isAdmin && (
@@ -168,7 +169,7 @@ export const LandingPage: React.FC = () => {
                 </Link>
                 <Link
                   to="/dashboard"
-                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5"
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <span>Dashboard</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -184,12 +185,13 @@ export const LandingPage: React.FC = () => {
                 </Link>
                 <Link
                   to="/signup"
-                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition whitespace-nowrap"
                 >
                   Sign Up
                 </Link>
               </>
             )}
+            <LiveDateBadge className="hidden lg:inline-flex" />
           </div>
 
           {/* Mobile Menu Toggle */}
@@ -241,6 +243,9 @@ export const LandingPage: React.FC = () => {
                   </Link>
                 </>
               )}
+            </div>
+            <div className="pt-1 flex justify-center">
+              <LiveDateBadge className="w-full justify-center" />
             </div>
           </div>
         )}
