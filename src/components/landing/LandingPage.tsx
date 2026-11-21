@@ -14,6 +14,7 @@ import {
   X,
   Menu,
   Mail,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { INITIAL_RESUME, TemplateDefinition } from '../../types/resume';
@@ -25,6 +26,7 @@ import {
 } from '../../lib/supabase';
 import { ResumeRenderer } from '../templates/ResumeRenderer';
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
+import { SecurityNoticeSection, OFFICIAL_WEBSITE_URL } from '../common/SecurityNotice';
 
 const DEFAULT_TEMPLATES: TemplateDefinition[] = [
   {
@@ -528,6 +530,9 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* Security & Website Verification Notice */}
+      <SecurityNoticeSection />
+
       {/* FAQs */}
       <section id="faq" className="py-20 border-t border-white/15">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -569,38 +574,59 @@ export const LandingPage: React.FC = () => {
 
       {/* Footer */}
       <footer className="border-t border-white/12 py-10 bg-[#080b16]/82 backdrop-blur-xl text-neutral-300 text-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <ResumeFlowLogo size="sm" />
-            <span className="text-neutral-700">•</span>
-            <span>Your Career. Your Story. Powered by AI.</span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <ResumeFlowLogo size="sm" />
+              <span className="text-neutral-700">•</span>
+              <span>Your Career. Your Story. Powered by AI.</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-6">
+              <button
+                type="button"
+                onClick={() => setLegalModal('privacy')}
+                className="hover:text-white transition"
+              >
+                Privacy Policy
+              </button>
+              <button
+                type="button"
+                onClick={() => setLegalModal('terms')}
+                className="hover:text-white transition"
+              >
+                Terms
+              </button>
+              <button
+                type="button"
+                onClick={() => setLegalModal('contact')}
+                className="hover:text-white transition"
+              >
+                Contact
+              </button>
+              <Link to="/admin" className="hover:text-white transition">
+                Admin
+              </Link>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6">
-            <button
-              type="button"
-              onClick={() => setLegalModal('privacy')}
-              className="hover:text-white transition"
-            >
-              Privacy Policy
-            </button>
-            <button
-              type="button"
-              onClick={() => setLegalModal('terms')}
-              className="hover:text-white transition"
-            >
-              Terms
-            </button>
-            <button
-              type="button"
-              onClick={() => setLegalModal('contact')}
-              className="hover:text-white transition"
-            >
-              Contact
-            </button>
-            <Link to="/admin" className="hover:text-white transition">
-              Admin
-            </Link>
+          <div className="pt-5 border-t border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-[11px] text-neutral-300">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Shield className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span className="text-neutral-300">Official ResumeFlow website:</span>
+              <a
+                href={OFFICIAL_WEBSITE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-sky-300 hover:text-white underline decoration-sky-400/40 underline-offset-2 break-all transition"
+              >
+                {OFFICIAL_WEBSITE_URL}
+              </a>
+            </div>
+            <p className="text-neutral-400 flex items-center gap-1.5">
+              <Lock className="w-3 h-3 text-sky-400 shrink-0" />
+              <span>Avoid lookalike sites or phishing links. Never share your password or OTP codes.</span>
+            </p>
           </div>
         </div>
       </footer>

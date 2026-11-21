@@ -16,12 +16,14 @@ import { useAuth, formatAuthError } from '../../context/AuthContext';
 import { getSupabase, fetchSiteSettings } from '../../lib/supabase';
 import { WelcomePopup } from '../../lib/welcome-popup';
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
+import { AuthSecurityReminder } from '../common/SecurityNotice';
 
 const AuthShell: React.FC<{
   title: string;
   subtitle: string;
+  belowCard?: React.ReactNode;
   children: React.ReactNode;
-}> = ({ title, subtitle, children }) => (
+}> = ({ title, subtitle, belowCard, children }) => (
   <div className="min-h-screen bg-transparent text-[#e2e8f0] flex flex-col justify-between p-4 sm:p-6">
     <div className="max-w-6xl w-full mx-auto flex items-center justify-between px-4 py-2.5 rounded-2xl bg-[#0a0d1a]/76 backdrop-blur-xl border border-white/12 shadow-lg">
       <Link to="/" className="hover:opacity-90 transition">
@@ -44,6 +46,7 @@ const AuthShell: React.FC<{
         </div>
         {children}
       </div>
+      {belowCard}
     </div>
 
     <div className="text-center pb-2">
@@ -181,6 +184,7 @@ export const LoginPage: React.FC = () => {
     <AuthShell
       title="Welcome back"
       subtitle="Sign in to access your saved resumes, ATS scores, and AI tools."
+      belowCard={<AuthSecurityReminder />}
     >
       <div className="space-y-4">
         {error && (
@@ -409,6 +413,7 @@ export const SignupPage: React.FC = () => {
       <AuthShell
         title="Verify your email"
         subtitle="One quick step to activate your ResumeFlow workspace."
+        belowCard={<AuthSecurityReminder />}
       >
         <div className="space-y-4">
           <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 text-xs space-y-2">
@@ -462,6 +467,7 @@ export const SignupPage: React.FC = () => {
     <AuthShell
       title="Create your account"
       subtitle="Start building ATS-ready resumes backed by Google Gemini and Supabase."
+      belowCard={<AuthSecurityReminder />}
     >
       <div className="space-y-4">
         {error && (
