@@ -22,6 +22,7 @@ import { Dashboard } from './components/dashboard/Dashboard';
 import { ResumeBuilderView } from './components/editor/ResumeBuilderView';
 import { SettingsPage } from './components/settings/SettingsPage';
 import { AdminDashboard } from './components/admin/AdminDashboard';
+import { PrivacyPolicyPage } from './components/legal/PrivacyPolicyPage';
 import {
   LoginPage,
   SignupPage,
@@ -183,6 +184,7 @@ function AppRoutes() {
         <Routes>
         {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 

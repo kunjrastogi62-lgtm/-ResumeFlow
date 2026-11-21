@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   Sparkles,
   ArrowRight,
@@ -26,7 +26,7 @@ import {
 } from '../../lib/supabase';
 import { ResumeRenderer } from '../templates/ResumeRenderer';
 import { ResumeFlowLogo } from '../common/ResumeFlowLogo';
-import { SecurityNoticeSection, OFFICIAL_WEBSITE_URL } from '../common/SecurityNotice';
+import { SecurityNoticeSection, PRIMARY_WEBSITE_URL, OFFICIAL_WEBSITE_URL } from '../common/SecurityNotice';
 
 const DEFAULT_TEMPLATES: TemplateDefinition[] = [
   {
@@ -64,12 +64,23 @@ const DEFAULT_TEMPLATES: TemplateDefinition[] = [
 export const LandingPage: React.FC = () => {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [templates, setTemplates] = useState<TemplateDefinition[]>(DEFAULT_TEMPLATES);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(DEFAULT_SITE_SETTINGS);
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [legalModal, setLegalModal] = useState<'privacy' | 'terms' | 'contact' | null>(null);
+  const [legalModal, setLegalModal] = useState<'terms' | 'contact' | null>(null);
+
+  useEffect(() => {
+    if (location.hash) {
+      const targetId = location.hash.replace(/^#/, '');
+      const el = document.getElementById(targetId);
+      if (el) {
+        setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+      }
+    }
+  }, [location.hash]);
 
   useEffect(() => {
     fetchSiteSettings().then((cfg) => setSiteSettings(cfg));
@@ -134,6 +145,7 @@ export const LandingPage: React.FC = () => {
             <a href="#features" className="hover:text-white transition">Features</a>
             <a href="#templates" className="hover:text-white transition">Templates</a>
             <a href="#about" className="hover:text-white transition">About</a>
+            <a href="#security" className="hover:text-white transition">Security</a>
             <a href="#faq" className="hover:text-white transition">FAQs</a>
           </nav>
 
@@ -199,6 +211,8 @@ export const LandingPage: React.FC = () => {
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">Features</a>
               <a href="#templates" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">Templates</a>
               <a href="#about" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">About</a>
+              <a href="#security" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">Security</a>
+              <Link to="/privacy-policy" onClick={() => setMobileMenuOpen(false)} className="py-1 hover:text-white">Privacy Policy</Link>
             </div>
             <div className="pt-3 border-t border-[#1c2030] flex items-center gap-2.5">
               {user ? (
@@ -531,7 +545,7 @@ export const LandingPage: React.FC = () => {
       </section>
 
       {/* Security & Website Verification Notice */}
-      <SecurityNoticeSection />
+      <SecurityNoticeSection supportEmail={siteSettings.supportEmail} />
 
       {/* FAQs */}
       <section id="faq" className="py-20 border-t border-white/15">
@@ -583,26 +597,25 @@ export const LandingPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-6">
-              <button
-                type="button"
-                onClick={() => setLegalModal('privacy')}
-                className="hover:text-white transition"
-              >
+              <Link to="/privacy-policy" className="hover:text-white transition">
                 Privacy Policy
-              </button>
+              </Link>
               <button
                 type="button"
                 onClick={() => setLegalModal('terms')}
                 className="hover:text-white transition"
               >
-                Terms
+                Terms &amp; Conditions
               </button>
+              <a href="#security" className="hover:text-white transition">
+                Security
+              </a>
               <button
                 type="button"
                 onClick={() => setLegalModal('contact')}
                 className="hover:text-white transition"
               >
-                Contact
+                Contact Us
               </button>
               <Link to="/admin" className="hover:text-white transition">
                 Admin
@@ -614,6 +627,15 @@ export const LandingPage: React.FC = () => {
             <div className="flex items-center gap-2 flex-wrap">
               <Shield className="w-3.5 h-3.5 text-sky-400 shrink-0" />
               <span className="text-neutral-300">Official ResumeFlow website:</span>
+              <a
+                href={PRIMARY_WEBSITE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-mono text-sky-300 hover:text-white underline decoration-sky-400/40 underline-offset-2 break-all transition"
+              >
+                {PRIMARY_WEBSITE_URL}
+              </a>
+              <span className="text-neutral-600">•</span>
               <a
                 href={OFFICIAL_WEBSITE_URL}
                 target="_blank"
@@ -631,15 +653,14 @@ export const LandingPage: React.FC = () => {
         </div>
       </footer>
 
-      {/* Privacy / Terms / Contact Modal */}
+      {/* Terms & Conditions / Contact Us Modal */}
       {legalModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
           <div className="w-full max-w-md bg-[#101219] border border-[#232736] rounded-2xl p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white">
-                {legalModal === 'privacy' && 'Privacy Policy'}
-                {legalModal === 'terms' && 'Terms of Service'}
-                {legalModal === 'contact' && 'Contact ResumeFlow'}
+                {legalModal === 'terms' && 'Terms & Conditions'}
+                {legalModal === 'contact' && 'Contact Us'}
               </h3>
               <button
                 type="button"
@@ -650,22 +671,16 @@ export const LandingPage: React.FC = () => {
               </button>
             </div>
 
-            {legalModal === 'privacy' && (
-              <p className="text-xs text-neutral-300 leading-relaxed">
-                ResumeFlow stores your profile and resume documents exclusively in your authenticated Supabase PostgreSQL database protected by Row Level Security. Your resume content is never sold to third parties or shared publicly without your action.
-              </p>
-            )}
-
             {legalModal === 'terms' && (
               <p className="text-xs text-neutral-300 leading-relaxed">
-                ResumeFlow is provided for personal and professional career development. You retain full ownership of all resumes, cover letters, and exports you create on the platform.
+                ResumeFlow is provided for personal and professional career development. You retain full ownership of all resumes, cover letters, and exports you create on the platform. You agree to keep your login credentials private and use the platform lawfully.
               </p>
             )}
 
             {legalModal === 'contact' && (
               <div className="space-y-3 text-xs text-neutral-300">
                 <p className="leading-relaxed">
-                  Questions, feedback, or deployment support? Reach out anytime:
+                  Questions, privacy requests, or security reports? Reach out anytime:
                 </p>
                 <a
                   href={`mailto:${siteSettings.supportEmail}`}

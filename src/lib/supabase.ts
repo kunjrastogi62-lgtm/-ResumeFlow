@@ -245,10 +245,16 @@ export async function fetchUserResumes(userId: string): Promise<ResumeRecord[]> 
     throw new Error('Authentication required to load resumes.');
   }
 
+  const { data: sessionData } = await supabase.auth.getSession();
+  const activeUserId = sessionData?.session?.user?.id;
+  if (!activeUserId || activeUserId !== userId) {
+    throw new Error('Unauthorized: you can only access your own private resumes.');
+  }
+
   const { data, error } = await supabase
     .from('resumes')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', activeUserId)
     .order('updated_at', { ascending: false });
 
   if (error) {
@@ -262,11 +268,17 @@ export async function fetchResumeById(resumeId: string, userId: string): Promise
   const supabase = getSupabase();
   if (!supabase || !userId || !resumeId) return null;
 
+  const { data: sessionData } = await supabase.auth.getSession();
+  const activeUserId = sessionData?.session?.user?.id;
+  if (!activeUserId || activeUserId !== userId) {
+    throw new Error('Unauthorized: you do not have permission to access this resume.');
+  }
+
   const { data, error } = await supabase
     .from('resumes')
     .select('*')
     .eq('id', resumeId)
-    .eq('user_id', userId)
+    .eq('user_id', activeUserId)
     .maybeSingle();
 
   if (error) {
@@ -348,11 +360,17 @@ export async function deleteResumeFromDb(resumeId: string, userId: string): Prom
   const supabase = getSupabase();
   if (!supabase) return { error: new Error('Supabase is not configured.') };
 
+  const { data: sessionData } = await supabase.auth.getSession();
+  const activeUserId = sessionData?.session?.user?.id;
+  if (!activeUserId || activeUserId !== userId) {
+    return { error: new Error('Unauthorized: you can only delete your own resumes.') };
+  }
+
   const { error } = await supabase
     .from('resumes')
     .delete()
     .eq('id', resumeId)
-    .eq('user_id', userId);
+    .eq('user_id', activeUserId);
 
   return { error };
 }
