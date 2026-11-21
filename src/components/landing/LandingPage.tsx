@@ -617,9 +617,6 @@ export const LandingPage: React.FC = () => {
               >
                 Contact Us
               </button>
-              <Link to="/admin" className="hover:text-white transition">
-                Admin
-              </Link>
             </div>
           </div>
 

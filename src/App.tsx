@@ -76,11 +76,10 @@ const PublicAuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
   return <>{children}</>;
 };
 
-// Requires authenticated admin account; shows clear guidance instead of silent redirect
+// Requires authenticated admin account; redirects cleanly to normal sign-in without exposing admin details
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAdmin, loading, signOut } = useAuth();
+  const { user, isAdmin, loading } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
   if (loading) return <AuthLoadingScreen />;
 
@@ -91,8 +90,6 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         replace
         state={{
           from: `${location.pathname}${location.search}`,
-          email: 'kunjrastogi62@gmail.com',
-          notice: 'Sign in with your admin email (kunjrastogi62@gmail.com) to open the Admin Panel.',
         }}
       />
     );
@@ -104,37 +101,17 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         <div className="max-w-md w-full bg-[#0d111e]/88 backdrop-blur-xl border border-white/15 rounded-2xl p-6 space-y-4 shadow-2xl">
           <div className="flex items-center gap-2.5 text-amber-300">
             <ShieldAlert className="w-5 h-5 text-amber-400 shrink-0" />
-            <h1 className="text-base font-bold text-white">Admin Access Required</h1>
+            <h1 className="text-base font-bold text-white">Access Restricted</h1>
           </div>
           <p className="text-xs text-neutral-300 leading-relaxed">
-            You are currently signed in as <span className="font-semibold text-white">{user.email}</span>, which does not have admin privileges yet.
-          </p>
-          <p className="text-[11px] text-neutral-400 leading-relaxed">
-            Sign in with your admin account (<span className="text-indigo-300">kunjrastogi62@gmail.com</span>) or promote your account to <code className="text-indigo-300">role = 'admin'</code> in Supabase <code className="text-indigo-300">profiles</code>.
+            Your account does not have permission to view this page.
           </p>
           <div className="flex items-center gap-2.5 pt-2">
-            <button
-              type="button"
-              onClick={async () => {
-                await signOut();
-                navigate('/login', {
-                  replace: true,
-                  state: {
-                    from: '/admin',
-                    email: 'kunjrastogi62@gmail.com',
-                    notice: 'Enter your admin credentials to access the Admin Panel.',
-                  },
-                });
-              }}
-              className="flex-1 py-2 px-3 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
-            >
-              Sign in as Admin
-            </button>
             <Link
               to="/dashboard"
-              className="py-2 px-3 text-xs font-medium rounded-lg bg-[#161925] hover:bg-[#1e2334] text-neutral-200 border border-[#252b3d] transition"
+              className="flex-1 py-2 px-3 text-center text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition"
             >
-              Dashboard
+              Return to Dashboard
             </Link>
           </div>
         </div>
