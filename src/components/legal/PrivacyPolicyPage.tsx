@@ -60,7 +60,7 @@ export const PrivacyPolicyPage: React.FC = () => {
     };
   }, []);
 
-  const supportEmail = siteSettings.supportEmail || 'support@resumeflow.ai';
+  const supportEmail = siteSettings.supportEmail || 'AveronTechnologies@outlook.com';
 
   const sections: PolicySection[] = [
     {

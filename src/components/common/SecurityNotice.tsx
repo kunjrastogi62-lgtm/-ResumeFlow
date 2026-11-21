@@ -26,7 +26,7 @@ interface SecurityNoticeSectionProps {
  * Uses a clean Linear-inspired blue-and-white palette with honest, verifiable security details.
  */
 export const SecurityNoticeSection: React.FC<SecurityNoticeSectionProps> = ({
-  supportEmail = 'support@resumeflow.ai',
+  supportEmail = 'AveronTechnologies@outlook.com',
 }) => {
   const securityPillars = [
     {

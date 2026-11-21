@@ -474,11 +474,19 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   heroBadgeText: 'Your Career. Your Story. Powered by AI.',
   heroTitle: 'Build a Resume That Gets You Noticed.',
   heroTagline: 'Craft ATS-ready, recruiter-tested resumes in minutes with structured templates, live A4 previews, and Google Gemini intelligence.',
-  supportEmail: 'support@resumeflow.ai',
+  supportEmail: 'AveronTechnologies@outlook.com',
   allowSignups: true,
 };
 
 const SITE_SETTINGS_STORAGE_KEY = 'resumeflow_site_settings_v1';
+
+function normalizeSiteSettings(raw: Partial<SiteSettings>): SiteSettings {
+  const merged = { ...DEFAULT_SITE_SETTINGS, ...raw };
+  if (!merged.supportEmail || merged.supportEmail.trim().toLowerCase() === 'support@resumeflow.ai') {
+    merged.supportEmail = DEFAULT_SITE_SETTINGS.supportEmail;
+  }
+  return merged;
+}
 
 export async function fetchSiteSettings(): Promise<SiteSettings> {
   let local: Partial<SiteSettings> = {};
@@ -493,7 +501,7 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
 
   const supabase = getSupabase();
   if (!supabase) {
-    return { ...DEFAULT_SITE_SETTINGS, ...local };
+    return normalizeSiteSettings(local);
   }
 
   try {
@@ -504,7 +512,7 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
       .maybeSingle();
 
     if (!error && data?.config) {
-      const merged = { ...DEFAULT_SITE_SETTINGS, ...(data.config as Partial<SiteSettings>) };
+      const merged = normalizeSiteSettings(data.config as Partial<SiteSettings>);
       if (typeof window !== 'undefined') {
         localStorage.setItem(SITE_SETTINGS_STORAGE_KEY, JSON.stringify(merged));
       }
@@ -514,7 +522,7 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
     // fallback cleanly to local settings
   }
 
-  return { ...DEFAULT_SITE_SETTINGS, ...local };
+  return normalizeSiteSettings(local);
 }
 
 export async function saveSiteSettingsAdmin(
